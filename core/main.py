@@ -31,6 +31,7 @@ from core import models
 from core import storage
 from core.webrelay_bridge import WebRelayBridge, WebRelaySettings
 from core.lcp_actions import LCPActionInterpreter
+from core.job_chain_manager import JobChainManager
 from core.metrics_client import record_module_call, measured_call
 from core.rate_limiter import RateLimiter
 import json
@@ -200,6 +201,19 @@ relay_settings = WebRelaySettings(
 
 bridge = WebRelayBridge(relay_settings)
 lcp = LCPActionInterpreter(bridge=bridge)
+
+# Phase 9: Initialize JobChainManager for LCP Job Chaining
+from core.chain_index import ChainIndex
+chain_index_path = storage.DATA_DIR / "chain_index.json"
+chain_dir = storage.DATA_DIR / "chains"
+chain_index = ChainIndex(str(chain_index_path))
+chain_manager = JobChainManager(
+    chain_dir=str(chain_dir),
+    chain_index=chain_index,
+    storage=storage,
+    logger=None,  # Use print() for now
+    agent_plan_kind="agent_plan",
+)
 
 # Dispatcher instantiation (BASIS FOR ALL AUTOMATION)
 dispatcher = Dispatcher(bridge, lcp)
@@ -403,18 +417,57 @@ def sync_job(job_id: str):
         correlation_id=f"job:{job_id}",
     )
 
-    # 3) LCP-Followups erzeugen (kostet ggf. CPU)
-    # Note: Only one thread (the winner of try_sync_result) will reach this 
-    # because the result file is unlinked immediately after reading.
-    with measured_call(
-        source="core_v2.api.sync_job",
-        target="core_v2.lcp_actions.handle_job_result",
-        correlation_id=f"job:{job_id}",
-    ):
-        lcp.handle_job_result(job)
+    # 3) Phase 9: LCP Chain Handling
+    # Check if this is an agent_plan job with LCP v1 response
+    if job.result and isinstance(job.result, dict):
+        from core.lcp_actions import parse_lcp
+        
+        # Try to parse LCP envelope (v1 or legacy)
+        followup, final = parse_lcp(job.result, default_chain_id=job_id)
+        
+        if followup or final:
+            # This is a chain job - handle via JobChainManager
+            print(f"[sync_job] LCP envelope detected for job {job_id[:12]}...")
+            
+            # Get task to determine chain_id
+            task = storage.get_task(job.task_id)
+            if task:
+                chain_id = task.params.get("chain_id") or job_id
+                
+                # Ensure chain exists
+                chain_manager.ensure_chain(chain_id=chain_id, root_job_id=job_id)
+                
+                if followup:
+                    # Register followup jobs
+                    print(f"[sync_job] Registering {len(followup.jobs)} followup jobs...")
+                    chain_manager.register_followup_jobs(
+                        chain_id=chain_id,
+                        root_job_id=job_id,
+                        parent_llm_job_id=job_id,
+                        job_specs=followup.jobs
+                    )
+                    
+                    # Dispatch next LLM step
+                    chain_manager.dispatch_next_llm_step(chain_id=chain_id)
+                    
+                elif final:
+                    # Close chain with final answer
+                    print(f"[sync_job] Closing chain {chain_id[:12]} with final answer...")
+                    chain_manager.close_chain(chain_id=chain_id, final_answer=final.answer)
+        else:
+            # No LCP envelope - run old LCP handler for legacy support
+            # Note: Only one thread (the winner of try_sync_result) will reach this 
+            # because the result file is unlinked immediately after reading.
+            with measured_call(
+                source="core_v2.api.sync_job",
+                target="core_v2.lcp_actions.handle_job_result",
+                correlation_id=f"job:{job_id}",
+            ):
+                lcp.handle_job_result(job)
 
     # Job ist bereits von bridge.try_sync_result() aktualisiert
     return job
+
 
 
 # ------------------------------------------------------------------------------

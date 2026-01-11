@@ -1,0 +1,75 @@
+{
+  "default_worker": {
+    "worker_id": "default_worker",
+    "capabilities": [
+      {
+        "kind": "list_files",
+        "cost": 10
+      },
+      {
+        "kind": "read_file",
+        "cost": 10
+      },
+      {
+        "kind": "write_file",
+        "cost": 50
+      },
+      {
+        "kind": "patch_file",
+        "cost": 40
+      },
+      {
+        "kind": "pdf_to_json",
+        "cost": 20
+      }
+    ],
+    "status": "online",
+    "last_seen": 1768101364.8226228,
+    "endpoint": null,
+    "stats": {
+      "latency_ms_ema": 30895.172424083517,
+      "success_ema": 0.9981110534068525,
+      "n": 24,
+      "last_seen_ts": 1768101364.8226228,
+      "consecutive_failures": 0,
+      "is_offline": false,
+      "cooldown_until": 1768100508.66919,
+      "active_jobs": 0
+    },
+    "meta": {}
+  },
+  "webrelay_worker": {
+    "worker_id": "webrelay_worker",
+    "capabilities": [
+      {
+        "kind": "llm_call",
+        "cost": 25
+      },
+      {
+        "kind": "agent_plan",
+        "cost": 30
+      },
+      {
+        "kind": "analyze_file",
+        "cost": 20
+      }
+    ],
+    "status": "online",
+    "last_seen": 1768100464.5599499,
+    "endpoint": "http://localhost:3000",
+    "stats": {
+      "latency_ms_ema": 750.0,
+      "success_ema": 0.85,
+      "n": 0,
+      "last_seen_ts": 0.0,
+      "consecutive_failures": 0,
+      "is_offline": false,
+      "cooldown_until": 0.0,
+      "active_jobs": 0
+    },
+    "meta": {
+      "llm_backend": "chatgpt",
+      "version": "2.0"
+    }
+  }
+}

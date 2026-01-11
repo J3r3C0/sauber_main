@@ -1,0 +1,12 @@
+{
+  "http://127.0.0.1:8081": {
+    "node_id": "node-A",
+    "last_seen": "2026-01-10T23:47:24.849746Z",
+    "active": true
+  },
+  "http://127.0.0.1:8082": {
+    "node_id": "node-B",
+    "last_seen": "2026-01-03T14:53:00Z",
+    "active": false
+  }
+}

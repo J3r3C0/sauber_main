@@ -1,0 +1,41 @@
+economy:
+  mint_mode: work_only
+  genesis_reserve_percent: 1.0        # optional, lokal ge-vested
+  fees:
+    tx_fee_min: 0.001                  # 0.1%
+    tx_fee_max: 0.01                   # 1.0%
+  host_reserve: 0.01                   # ~1% Systemfonds beim Settlement
+
+oncall:
+  min_percent: 10
+  burst_percent_max: 60
+  t_activate_compute_ms: 30000
+  t_activate_storage_ms: 120000
+  redundancy_compute: 2
+  redundancy_public_assets: 5
+
+storage:
+  chunk_bytes: 1048576                 # 1 MiB
+  replication_r_small: 5
+  ec_enabled: true
+  ec_k: 12
+  ec_n: 20
+  prefer_wifi_for_large_payloads: true
+
+privacy:
+  e2ee_enabled: true                   # Stub in v0
+  cipher: "xchacha20_poly1305 (planned)"
+  key_exchange: "x25519 (planned)"
+  metadata_minimization: true
+
+routing:
+  mesh: "batman_adv (recommended)"
+  dtn_enabled: true
+
+mobile:
+  control_traffic_cap_kb_per_min: 10
+  prefer_wifi_for_payloads: true
+
+ledger:
+  batch_size_tasks: 500
+  receipts_merkle: true

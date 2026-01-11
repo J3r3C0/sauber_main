@@ -1,0 +1,16 @@
+{
+    "ok": true,
+    "action": "create_followup_jobs",
+    "commentary": "[SIMULATION] Generic LLM response for testing loop logic",
+    "new_jobs": [
+        {
+            "kind": "llm_call",
+            "name": "Simulation: Analyze results",
+            "params": {
+                "prompt": "Continue analysis based on previous step",
+                "response_format": "lcp"
+            },
+            "auto_dispatch": true
+        }
+    ]
+}

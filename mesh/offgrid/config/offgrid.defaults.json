@@ -1,0 +1,9 @@
+{
+  "features": {
+    "weighted_quorum_enabled": false,
+    "per_kind_decay_enabled": false,
+    "noise_envelope_enabled": true,
+    "auto_placement_enabled": true
+  },
+  "placement_target": "balanced"
+}

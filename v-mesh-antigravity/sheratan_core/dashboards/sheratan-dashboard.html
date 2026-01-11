@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Sheratan Core Control Center</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #020617;
+            --bg-elevated: #020617;
+            --bg-card: #020617;
+            --bg-soft: #020617;
+            --border: #1e293b;
+            --text: #e5e7eb;
+            --muted: #9ca3af;
+            --accent: #0ea5e9;
+            --accent-soft: rgba(56, 189, 248, 0.1);
+            --danger: #f97373;
+            --success: #22c55e;
+            --font: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                "Segoe UI", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--font);
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-root {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar */
+
+        .sidebar {
+            width: 220px;
+            border-right: 1px solid var(--border);
+            background: radial-gradient(circle at top left, #0f172a 0, #020617 60%);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            border-bottom: 1px solid var(--border);
+            padding: 12px 14px;
+        }
+
+        .sidebar-logo-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-mark {
+            height: 28px;
+            width: 28px;
+            border-radius: 999px;
+            background: radial-gradient(circle at 30% 0%, #e0f2fe, #0ea5e9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #020617;
+            font-weight: 900;
+            font-size: 18px;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.9);
+        }
+
+        .logo-text-primary {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+        }
+
+        .logo-text-secondary {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12px;
+        }
+
+        .nav-button {
+            border: none;
+            background: transparent;
+            color: var(--text);
+            text-align: left;
+            width: 100%;
+            padding: 7px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .nav-button:hover {
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .nav-button.active {
+            background: rgba(15, 23, 42, 0.9);
+            color: var(--accent);
+            border: 1px solid rgba(56, 189, 248, 0.6);
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        }
+
+        .sidebar-footer {
+            border-top: 1px solid var(--border);
+            padding: 8px;
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .sidebar-footer button {
+            width: 100%;
+            border-radius: 8px;
+            padding: 5px 8px;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.9);
+            color: var(--text);
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .sidebar-footer button:hover {
+            background: #020617;
+        }
+
+        .sidebar-footer p {
+            margin: 3px 0 0;
+        }
+
+        /* Main */
+
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-header {
+            height: 48px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            font-size: 12px;
+        }
+
+        .main-header-title {
+            font-weight: 600;
+        }
+
+        .main-header-sub {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .page-container {
+            flex: 1;
+            min-height: 0;
+            display: none;
+            /* toggled via JS */
+        }
+
+        .page-container.active {
+            display: block;
+        }
+
+        .page-inner {
+            height: 100%;
+            width: 100%;
+            padding: 12px;
+            overflow: auto;
+            font-size: 12px;
+        }
+
+        /* Swappable layout */
+
+        .grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .split-horizontal {
+            display: flex;
+            height: 100%;
+            gap: 0;
+        }
+
+        .split-horizontal-left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .split-horizontal-right {
+            width: 40%;
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .split-vertical {
+            display: flex;
+            height: 100%;
+        }
+
+        .split-left {
+            width: 33%;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .split-right {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Cards & table */
+
+        .card {
+            background: linear-gradient(135deg, #020617, #020617);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 10px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .card-title {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .card-subtitle {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .error {
+            color: var(--danger);
+            font-size: 10px;
+            margin-top: 2px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            border-radius: 999px;
+            display: inline-block;
+        }
+
+        .status-dot.ok {
+            background: var(--success);
+        }
+
+        .status-dot.fail {
+            background: var(--danger);
+        }
+
+        .status-dot.unknown {
+            background: #6b7280;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent);
+            margin: 4px 0 0;
+        }
+
+        .list-item {
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 6px 8px;
+            background: rgba(15, 23, 42, 0.9);
+            cursor: pointer;
+            margin-bottom: 4px;
+        }
+
+        .list-item:hover {
+            background: #020617;
+        }
+
+        .list-title {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .list-subtitle {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th,
+        td {
+            padding: 4px 5px;
+            border-bottom: 1px solid #020617;
+            text-align: left;
+            font-size: 11px;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background: #020617;
+        }
+
+        th {
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover td {
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            font-size: 10px;
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .mono {
+            font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+                "Liberation Mono", "Courier New", monospace;
+        }
+
+        /* Form elements */
+
+        input,
+        textarea,
+        select,
+        button {
+            font-family: inherit;
+        }
+
+        input,
+        textarea,
+        select {
+            background: #020617;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 5px 7px;
+            color: var(--text);
+            font-size: 11px;
+            width: 100%;
+        }
+
+        textarea {
+            resize: none;
+        }
+
+        button.primary {
+            background: var(--accent);
+            border-radius: 8px;
+            border: none;
+            padding: 6px 8px;
+            color: #020617;
+            font-weight: 600;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        button.primary:hover {
+            filter: brightness(1.05);
+        }
+
+        button.primary:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        button.secondary {
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 5px 8px;
+            color: var(--text);
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        button.secondary:hover {
+            background: #020617;
+        }
+
+        .flex-row {
+            display: flex;
+            align-items: center;
+        }
+
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .gap-4 {
+            gap: 10px;
+        }
+
+        .gap-2 {
+            gap: 6px;
+        }
+
+        .h-full {
+            height: 100%;
+        }
+
+        .scrollable {
+            overflow: auto;
+        }
+
+        .small-text {
+            font-size: 10px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            padding: 2px 6px;
+            font-size: 10px;
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        /* Console tabs */
+
+        .tab-row {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 6px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 5px;
+            font-size: 11px;
+            background: rgba(15, 23, 42, 0.9);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .tab-btn.active {
+            background: rgba(56, 189, 248, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        pre {
+            font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+                "Liberation Mono", "Courier New", monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-root">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo-row">
+                    <div class="logo-mark">S</div>
+                    <div>
+                        <div class="logo-text-primary">SHERATAN</div>
+                        <div class="logo-text-secondary">Core Control Center</div>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-button active" data-page="overview">Overview</button>
+                <button class="nav-button" data-page="missions">Missions</button>
+                <button class="nav-button" data-page="jobs">Job Queue</button>
+                <button class="nav-button" data-page="console">LLM Console</button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button id="btn-reload-all">Reload data</button>
+                <p>Core: <span id="sidebar-core-status">unknown</span></p>
+                <p>WebRelay: <span id="sidebar-webrelay-status">unknown</span></p>
+            </div>
+        </aside>
+
+        <!-- Main -->
+        <main class="main">
+            <header class="main-header">
+                <div>
+                    <div class="main-header-title" id="header-title">Overview</div>
+                    <div class="main-header-sub">Sheratan Agent Workspace · Core v2</div>
+                </div>
+            </header>
+
+            <!-- Overview Page -->
+            <section class="page-container active" id="page-overview">
+                <div class="page-inner">
+                    <div class="grid grid-3">
+                        <!-- Core -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">Core</div>
+                                <div class="status-pill">
+                                    <span id="core-dot" class="status-dot unknown"></span>
+                                    <span id="core-status-text" class="small-text">Unknown</span>
+                                </div>
+                            </div>
+                            <div class="small-text muted">Missions: <span id="core-missions">–</span></div>
+                            <div class="error" id="core-error" style="display:none;"></div>
+                        </div>
+
+                        <!-- WebRelay -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">WebRelay</div>
+                                <div class="status-pill">
+                                    <span id="webrelay-dot" class="status-dot unknown"></span>
+                                    <span id="webrelay-status-text" class="small-text">Unknown</span>
+                                </div>
+                            </div>
+                            <div class="small-text muted">LLM Bridge</div>
+                            <div class="error" id="webrelay-error" style="display:none;"></div>
+                        </div>
+
+                        <!-- Jobs -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">Offene Jobs</div>
+                            </div>
+                            <div class="stat-value" id="open-jobs-count">0</div>
+                            <div class="error" id="jobs-error-overview" style="display:none;"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-2" style="margin-top:10px;">
+                        <!-- Recent Missions -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">Letzte Missions</div>
+                                <div class="card-subtitle">Total: <span id="missions-total">0</span></div>
+                            </div>
+                            <div id="recent-missions" style="max-height:220px; overflow:auto;"></div>
+                        </div>
+
+                        <!-- Recent Jobs -->
+                        <div class="card">
+                            <div class="card-header">
+                                <div class="card-title">Letzte Jobs</div>
+                                <div class="card-subtitle">Total: <span id="jobs-total">0</span></div>
+                            </div>
+                            <div style="max-height:220px; overflow:auto;">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Job</th>
+                                            <th>Task</th>
+                                            <th>Status</th>
+                                            <th>Updated</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recent-jobs-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Missions Page -->
+            <section class="page-container" id="page-missions">
+                <div class="page-inner">
+                    <div class="split-vertical">
+                        <!-- left: missions list + create -->
+                        <div class="split-left" style="padding:10px;">
+                            <div class="card" style="margin-bottom:8px; flex:1; display:flex; flex-direction:column;">
+                                <div class="card-header">
+                                    <div class="card-title">Missions</div>
+                                    <div class="card-subtitle">Total: <span id="missions-total-left">0</span></div>
+                                </div>
+                                <div id="missions-list" class="scrollable" style="flex:1;"></div>
+                            </div>
+
+                            <div class="card">
+                                <div class="card-title">Neue Mission</div>
+                                <div style="margin-top:6px;">
+                                    <input id="new-mission-title" placeholder="Titel" />
+                                </div>
+                                <div style="margin-top:6px;">
+                                    <textarea id="new-mission-desc" rows="3" placeholder="Beschreibung"></textarea>
+                                </div>
+                                <div style="margin-top:6px;">
+                                    <button id="btn-create-mission" class="primary">Mission erstellen</button>
+                                </div>
+                                <div class="error" id="mission-create-error" style="display:none;"></div>
+                            </div>
+                        </div>
+
+                        <!-- right: mission detail -->
+                        <div class="split-right" style="padding:10px;">
+                            <div id="mission-detail-none" class="flex-col"
+                                style="align-items:center; justify-content:center; height:100%;">
+                                <div class="muted small-text">Wähle links eine Mission aus oder erstelle eine neue.
+                                </div>
+                            </div>
+
+                            <div id="mission-detail-content"
+                                style="display:none; height:100%; flex-direction:column; gap:8px;">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <div>
+                                            <div class="card-title" id="mission-detail-title">–</div>
+                                            <div class="card-subtitle" id="mission-detail-desc"></div>
+                                        </div>
+                                        <div class="small-text muted mono">ID: <span id="mission-detail-id"></span>
+                                        </div>
+                                    </div>
+                                    <div id="mission-detail-tags" style="margin-top:4px;"></div>
+                                </div>
+
+                                <div class="grid grid-2" style="flex:1; min-height:0;">
+                                    <!-- tasks -->
+                                    <div class="card" style="display:flex; flex-direction:column;">
+                                        <div class="card-header">
+                                            <div class="card-title">Tasks</div>
+                                            <div class="card-subtitle small-text">Mission Tasks</div>
+                                        </div>
+                                        <div class="scrollable" style="flex:1;">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Kind</th>
+                                                        <th>ID</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="mission-tasks-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    <!-- jobs -->
+                                    <div class="card" style="display:flex; flex-direction:column;">
+                                        <div class="card-header">
+                                            <div class="card-title">Jobs dieser Mission</div>
+                                            <div class="card-subtitle small-text">Mission Jobs</div>
+                                        </div>
+                                        <div class="scrollable" style="flex:1;">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Job</th>
+                                                        <th>Task</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="mission-jobs-body"></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Jobs Page -->
+            <section class="page-container" id="page-jobs">
+                <div class="page-inner">
+                    <div class="split-horizontal h-full">
+                        <div class="split-horizontal-left">
+                            <div class="flex-between" style="margin-bottom:6px;">
+                                <div>
+                                    <div class="card-title">Jobs</div>
+                                    <div class="card-subtitle small-text">Gesamt: <span id="jobs-total-main">0</span>
+                                    </div>
+                                </div>
+                                <div class="small-text">
+                                    Status:
+                                    <select id="job-status-filter" style="width:auto;">
+                                        <option value="all">Alle</option>
+                                        <option value="pending">pending</option>
+                                        <option value="dispatched">dispatched</option>
+                                        <option value="done">done</option>
+                                        <option value="failed">failed</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="card" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+                                <div class="scrollable" style="flex:1;">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Job</th>
+                                                <th>Task</th>
+                                                <th>Status</th>
+                                                <th>Created</th>
+                                                <th>Updated</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="jobs-table-body"></tbody>
+                                    </table>
+                                </div>
+                                <div class="error" id="jobs-error-main" style="display:none;"></div>
+                            </div>
+                        </div>
+
+                        <div class="split-horizontal-right" style="padding:10px;">
+                            <div id="job-detail-none" class="flex-col"
+                                style="align-items:center; justify-content:center; height:100%;">
+                                <div class="muted small-text">Wähle links einen Job aus.</div>
+                            </div>
+
+                            <div id="job-detail-content"
+                                style="display:none; height:100%; flex-direction:column; gap:8px;">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <div class="card-title">Job Details</div>
+                                        <div class="small-text muted mono">ID: <span id="job-detail-id"></span></div>
+                                    </div>
+                                    <div class="small-text">
+                                        Task: <span class="mono" id="job-detail-task"></span>
+                                    </div>
+                                    <div class="small-text" style="margin-top:4px;">
+                                        Status:
+                                        <span class="pill" id="job-detail-status">–</span>
+                                    </div>
+                                    <div class="small-text muted" style="margin-top:4px;">
+                                        Created: <span id="job-detail-created">–</span><br />
+                                        Updated: <span id="job-detail-updated">–</span>
+                                    </div>
+                                    <div style="margin-top:8px; display:flex; gap:6px;">
+                                        <button id="btn-dispatch-job" class="primary">Dispatch</button>
+                                        <button id="btn-sync-job" class="secondary">Sync Result</button>
+                                    </div>
+                                </div>
+
+                                <div class="card" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+                                    <div class="card-title small-text">Payload</div>
+                                    <div class="scrollable" style="flex:1; margin-top:4px;">
+                                        <pre id="job-detail-payload">{}</pre>
+                                    </div>
+                                </div>
+
+                                <div class="card" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+                                    <div class="card-title small-text">Result</div>
+                                    <div class="scrollable" style="flex:1; margin-top:4px;">
+                                        <pre id="job-detail-result">{}</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Console Page -->
+            <section class="page-container" id="page-console">
+                <div class="page-inner">
+                    <div class="split-horizontal h-full">
+                        <div class="split-horizontal-left" style="padding:10px;">
+                            <div>
+                                <div class="card-title">Prompt</div>
+                                <div class="small-text muted" style="margin-top:2px;">Ctrl+Enter zum Senden</div>
+                                <textarea id="console-prompt" rows="9" style="margin-top:6px;"
+                                    placeholder="Beschreibe eine Mission / Frage / Aufgabe… (Ctrl+Enter zum Senden)"></textarea>
+                            </div>
+
+                            <div class="card" style="margin-top:10px;">
+                                <div class="tab-row">
+                                    <button class="tab-btn active" data-tab="coreFlow">Core Mission Flow</button>
+                                    <button class="tab-btn" data-tab="directLLM">Direkter LLM Call</button>
+                                </div>
+                                <div id="console-tab-desc" class="small-text muted">
+                                    Erzeugt eine Mission → Task → Job im Core und dispatcht + synced den Job.
+                                </div>
+                                <div style="margin-top:8px;">
+                                    <button id="btn-console-run" class="primary">Prompt ausführen</button>
+                                </div>
+                                <div class="error" id="console-error" style="display:none;"></div>
+                            </div>
+                        </div>
+
+                        <div class="split-horizontal-right" style="padding:10px;">
+                            <div class="card" style="height:100%; display:flex; flex-direction:column;">
+                                <div class="card-title">Output</div>
+                                <div class="scrollable" style="flex:1; margin-top:6px;">
+                                    <pre id="console-output">Awaiting input…</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        // ==============================================
+        // Config
+        // ==============================================
+        const CORE_BASE_URL = "http://localhost:8001";
+        const WEBRELAY_BASE_URL = "http://localhost:3000";
+
+        // ==============================================
+        // Global state
+        // ==============================================
+        let activePage = "overview"; // overview | missions | jobs | console
+        let consoleTab = "coreFlow"; // coreFlow | directLLM
+
+        let missions = [];
+        let tasks = [];
+        let jobs = [];
+
+        let selectedMissionId = null;
+        let selectedJobId = null;
+
+        let coreStatus = null;
+        let coreStatusError = null;
+        let webrelayStatus = null;
+        let webrelayStatusError = null;
+        let jobsError = null;
+
+        let consoleLoading = false;
+
+        // ==============================================
+        // Helpers
+        // ==============================================
+        function safeJson(v, spacing = 2) {
+            try {
+                return JSON.stringify(v, null, spacing);
+            } catch (e) {
+                return String(v);
+            }
+        }
+
+        function handleFetchError(err) {
+            if (err instanceof Error) return err.message;
+            try { return JSON.stringify(err); } catch (e) { return String(err); }
+        }
+
+        // ==============================================
+        // DOM references
+        // ==============================================
+        const headerTitleEl = document.getElementById("header-title");
+
+        // Sidebar
+        const navButtons = document.querySelectorAll(".nav-button");
+        const sidebarCoreStatusEl = document.getElementById("sidebar-core-status");
+        const sidebarWebrelayStatusEl = document.getElementById("sidebar-webrelay-status");
+
+        // Pages
+        const pageOverview = document.getElementById("page-overview");
+        const pageMissions = document.getElementById("page-missions");
+        const pageJobs = document.getElementById("page-jobs");
+        const pageConsole = document.getElementById("page-console");
+
+        // Overview page
+        const coreDot = document.getElementById("core-dot");
+        const coreStatusText = document.getElementById("core-status-text");
+        const coreMissionsEl = document.getElementById("core-missions");
+        const coreErrorEl = document.getElementById("core-error");
+
+        const webrelayDot = document.getElementById("webrelay-dot");
+        const webrelayStatusText = document.getElementById("webrelay-status-text");
+        const webrelayErrorEl = document.getElementById("webrelay-error");
+
+        const openJobsCountEl = document.getElementById("open-jobs-count");
+        const jobsErrorOverviewEl = document.getElementById("jobs-error-overview");
+
+        const missionsTotalEl = document.getElementById("missions-total");
+        const recentMissionsEl = document.getElementById("recent-missions");
+        const jobsTotalOverviewEl = document.getElementById("jobs-total");
+        const recentJobsBodyEl = document.getElementById("recent-jobs-body");
+
+        // Missions page
+        const missionsTotalLeftEl = document.getElementById("missions-total-left");
+        const missionsListEl = document.getElementById("missions-list");
+        const missionDetailNoneEl = document.getElementById("mission-detail-none");
+        const missionDetailContentEl = document.getElementById("mission-detail-content");
+        const missionDetailTitleEl = document.getElementById("mission-detail-title");
+        const missionDetailDescEl = document.getElementById("mission-detail-desc");
+        const missionDetailIdEl = document.getElementById("mission-detail-id");
+        const missionDetailTagsEl = document.getElementById("mission-detail-tags");
+        const missionTasksBodyEl = document.getElementById("mission-tasks-body");
+        const missionJobsBodyEl = document.getElementById("mission-jobs-body");
+
+        const newMissionTitleInput = document.getElementById("new-mission-title");
+        const newMissionDescInput = document.getElementById("new-mission-desc");
+        const missionCreateErrorEl = document.getElementById("mission-create-error");
+
+        // Jobs page
+        const jobsTotalMainEl = document.getElementById("jobs-total-main");
+        const jobStatusFilterEl = document.getElementById("job-status-filter");
+        const jobsTableBodyEl = document.getElementById("jobs-table-body");
+        const jobsErrorMainEl = document.getElementById("jobs-error-main");
+        const jobDetailNoneEl = document.getElementById("job-detail-none");
+        const jobDetailContentEl = document.getElementById("job-detail-content");
+        const jobDetailIdEl = document.getElementById("job-detail-id");
+        const jobDetailTaskEl = document.getElementById("job-detail-task");
+        const jobDetailStatusEl = document.getElementById("job-detail-status");
+        const jobDetailCreatedEl = document.getElementById("job-detail-created");
+        const jobDetailUpdatedEl = document.getElementById("job-detail-updated");
+        const jobDetailPayloadEl = document.getElementById("job-detail-payload");
+        const jobDetailResultEl = document.getElementById("job-detail-result");
+
+        const btnDispatchJob = document.getElementById("btn-dispatch-job");
+        const btnSyncJob = document.getElementById("btn-sync-job");
+
+        // Console page
+        const consolePromptEl = document.getElementById("console-prompt");
+        const consoleTabButtons = document.querySelectorAll(".tab-btn");
+        const consoleTabDescEl = document.getElementById("console-tab-desc");
+        const consoleErrorEl = document.getElementById("console-error");
+        const consoleOutputEl = document.getElementById("console-output");
+        const btnConsoleRun = document.getElementById("btn-console-run");
+
+        // Reload
+        const btnReloadAll = document.getElementById("btn-reload-all");
+
+        // ==============================================
+        // Navigation
+        // ==============================================
+        function setActivePage(page) {
+            activePage = page;
+            headerTitleEl.textContent =
+                page === "overview" ? "Overview" :
+                    page === "missions" ? "Missions" :
+                        page === "jobs" ? "Job Queue" :
+                            "LLM Console";
+
+            // pages
+            pageOverview.classList.toggle("active", page === "overview");
+            pageMissions.classList.toggle("active", page === "missions");
+            pageJobs.classList.toggle("active", page === "jobs");
+            pageConsole.classList.toggle("active", page === "console");
+
+            // nav buttons
+            navButtons.forEach(btn => {
+                btn.classList.toggle("active", btn.dataset.page === page);
+            });
+        }
+
+        navButtons.forEach(btn => {
+            btn.addEventListener("click", () => {
+                setActivePage(btn.dataset.page);
+            });
+        });
+
+        // ==============================================
+        // Rendering functions
+        // ==============================================
+        function renderCoreStatus() {
+            const online = coreStatus && coreStatus.status === "ok" && !coreStatusError;
+            coreDot.className = "status-dot " + (coreStatus === null ? "unknown" : online ? "ok" : "fail");
+            coreStatusText.textContent = online ? "Online" : (coreStatus ? "Offline" : "Unknown");
+            coreMissionsEl.textContent = coreStatus && typeof coreStatus.missions === "number"
+                ? String(coreStatus.missions)
+                : "–";
+
+            if (coreStatusError) {
+                coreErrorEl.textContent = coreStatusError;
+                coreErrorEl.style.display = "block";
+            } else {
+                coreErrorEl.style.display = "none";
+            }
+
+            sidebarCoreStatusEl.textContent = online ? "online" : "offline";
+            sidebarCoreStatusEl.style.color = online ? "var(--success)" : "var(--danger)";
+        }
+
+        function renderWebrelayStatus() {
+            const online = webrelayStatus &&
+                (webrelayStatus.status === "ok" || webrelayStatus.healthy === true) &&
+                !webrelayStatusError;
+            webrelayDot.className = "status-dot " + (webrelayStatus === null ? "unknown" : online ? "ok" : "fail");
+            webrelayStatusText.textContent = online ? "Online" : (webrelayStatus ? "Offline" : "Unknown");
+
+            if (webrelayStatusError) {
+                webrelayErrorEl.textContent = webrelayStatusError;
+                webrelayErrorEl.style.display = "block";
+            } else {
+                webrelayErrorEl.style.display = "none";
+            }
+
+            sidebarWebrelayStatusEl.textContent = online ? "online" : "offline";
+            sidebarWebrelayStatusEl.style.color = online ? "var(--success)" : "var(--danger)";
+        }
+
+        function renderOverviewPage() {
+            const openJobs = jobs.filter(j => j.status !== "done" && j.status !== "failed").length;
+            openJobsCountEl.textContent = String(openJobs);
+
+            if (jobsError) {
+                jobsErrorOverviewEl.textContent = jobsError;
+                jobsErrorOverviewEl.style.display = "block";
+            } else {
+                jobsErrorOverviewEl.style.display = "none";
+            }
+
+            missionsTotalEl.textContent = String(missions.length);
+            recentMissionsEl.innerHTML = "";
+            if (missions.length === 0) {
+                const p = document.createElement("div");
+                p.className = "small-text muted";
+                p.textContent = "Noch keine Missions vorhanden.";
+                recentMissionsEl.appendChild(p);
+            } else {
+                const last = missions.slice().reverse().slice(0, 5);
+                last.forEach(m => {
+                    const div = document.createElement("div");
+                    div.className = "list-item";
+                    div.addEventListener("click", () => {
+                        selectedMissionId = m.id;
+                        setActivePage("missions");
+                        renderAll();
+                    });
+                    const title = document.createElement("div");
+                    title.className = "list-title";
+                    title.textContent = m.title;
+                    const sub = document.createElement("div");
+                    sub.className = "list-subtitle";
+                    sub.textContent = m.description || "";
+                    div.appendChild(title);
+                    div.appendChild(sub);
+                    recentMissionsEl.appendChild(div);
+                });
+            }
+
+            jobsTotalOverviewEl.textContent = String(jobs.length);
+            recentJobsBodyEl.innerHTML = "";
+            if (jobs.length === 0) {
+                const row = document.createElement("tr");
+                const cell = document.createElement("td");
+                cell.colSpan = 4;
+                cell.className = "small-text muted";
+                cell.textContent = "Keine Jobs vorhanden.";
+                row.appendChild(cell);
+                recentJobsBodyEl.appendChild(row);
+            } else {
+                const last = jobs.slice().reverse().slice(0, 10);
+                last.forEach(j => {
+                    const row = document.createElement("tr");
+                    row.addEventListener("click", () => {
+                        selectedJobId = j.id;
+                        setActivePage("jobs");
+                        renderAll();
+                    });
+                    const cId = document.createElement("td");
+                    cId.textContent = j.id;
+                    const cTask = document.createElement("td");
+                    cTask.textContent = j.task_id;
+                    const cStatus = document.createElement("td");
+                    const span = document.createElement("span");
+                    span.className = "pill";
+                    span.textContent = j.status;
+                    cStatus.appendChild(span);
+                    const cUpdated = document.createElement("td");
+                    cUpdated.textContent = j.updated_at || j.created_at || "–";
+                    row.appendChild(cId);
+                    row.appendChild(cTask);
+                    row.appendChild(cStatus);
+                    row.appendChild(cUpdated);
+                    recentJobsBodyEl.appendChild(row);
+                });
+            }
+        }
+
+        function renderMissionsPage() {
+            missionsTotalLeftEl.textContent = String(missions.length);
+
+            // list
+            missionsListEl.innerHTML = "";
+            if (missions.length === 0) {
+                const div = document.createElement("div");
+                div.className = "small-text muted";
+                div.textContent = "Noch keine Missions vorhanden.";
+                missionsListEl.appendChild(div);
+            } else {
+                missions.forEach(m => {
+                    const btn = document.createElement("div");
+                    btn.className = "list-item";
+                    if (selectedMissionId === m.id) {
+                        btn.style.borderColor = "var(--accent)";
+                        btn.style.boxShadow = "0 0 12px rgba(56, 189, 248, 0.4)";
+                    }
+                    btn.addEventListener("click", () => {
+                        selectedMissionId = m.id;
+                        renderAll();
+                    });
+
+                    const title = document.createElement("div");
+                    title.className = "list-title";
+                    title.textContent = m.title;
+                    const sub = document.createElement("div");
+                    sub.className = "list-subtitle";
+                    sub.textContent = (m.description || "") + " · " + m.id;
+                    btn.appendChild(title);
+                    btn.appendChild(sub);
+                    missionsListEl.appendChild(btn);
+                });
+            }
+
+            // detail
+            if (!selectedMissionId) {
+                missionDetailNoneEl.style.display = "flex";
+                missionDetailContentEl.style.display = "none";
+                return;
+            }
+
+            const mission = missions.find(m => m.id === selectedMissionId);
+            if (!mission) {
+                missionDetailNoneEl.style.display = "flex";
+                missionDetailContentEl.style.display = "none";
+                return;
+            }
+
+            missionDetailNoneEl.style.display = "none";
+            missionDetailContentEl.style.display = "flex";
+
+            missionDetailTitleEl.textContent = mission.title;
+            missionDetailDescEl.textContent = mission.description || "";
+            missionDetailIdEl.textContent = mission.id;
+
+            missionDetailTagsEl.innerHTML = "";
+            if (mission.tags && mission.tags.length > 0) {
+                mission.tags.forEach(t => {
+                    const span = document.createElement("span");
+                    span.className = "badge";
+                    span.style.marginRight = "4px";
+                    span.textContent = t;
+                    missionDetailTagsEl.appendChild(span);
+                });
+            }
+
+            // tasks of mission
+            const missionTasks = tasks.filter(t => t.mission_id === mission.id);
+            missionTasksBodyEl.innerHTML = "";
+            if (missionTasks.length === 0) {
+                const tr = document.createElement("tr");
+                const td = document.createElement("td");
+                td.colSpan = 3;
+                td.className = "small-text muted";
+                td.textContent = "Keine Tasks für diese Mission.";
+                tr.appendChild(td);
+                missionTasksBodyEl.appendChild(tr);
+            } else {
+                missionTasks.forEach(t => {
+                    const tr = document.createElement("tr");
+                    const cName = document.createElement("td");
+                    cName.textContent = t.name;
+                    const cKind = document.createElement("td");
+                    cKind.textContent = t.kind || "–";
+                    const cId = document.createElement("td");
+                    cId.className = "mono small-text muted";
+                    cId.textContent = t.id;
+                    tr.appendChild(cName);
+                    tr.appendChild(cKind);
+                    tr.appendChild(cId);
+                    missionTasksBodyEl.appendChild(tr);
+                });
+            }
+
+            // jobs of mission
+            const taskIds = new Set(missionTasks.map(t => t.id));
+            const missionJobs = jobs.filter(j => taskIds.has(j.task_id));
+            missionJobsBodyEl.innerHTML = "";
+            if (missionJobs.length === 0) {
+                const tr = document.createElement("tr");
+                const td = document.createElement("td");
+                td.colSpan = 3;
+                td.className = "small-text muted";
+                td.textContent = "Noch keine Jobs für diese Mission.";
+                tr.appendChild(td);
+                missionJobsBodyEl.appendChild(tr);
+            } else {
+                missionJobs.forEach(j => {
+                    const tr = document.createElement("tr");
+                    tr.style.cursor = "pointer";
+                    tr.addEventListener("click", () => {
+                        selectedJobId = j.id;
+                        setActivePage("jobs");
+                        renderAll();
+                    });
+                    const cId = document.createElement("td");
+                    cId.textContent = j.id;
+                    const cTask = document.createElement("td");
+                    cTask.textContent = j.task_id;
+                    const cStatus = document.createElement("td");
+                    const pill = document.createElement("span");
+                    pill.className = "pill";
+                    pill.textContent = j.status;
+                    cStatus.appendChild(pill);
+                    tr.appendChild(cId);
+                    tr.appendChild(cTask);
+                    tr.appendChild(cStatus);
+                    missionJobsBodyEl.appendChild(tr);
+                });
+            }
+        }
+
+        function renderJobsPage() {
+            jobsTotalMainEl.textContent = String(jobs.length);
+
+            const filter = jobStatusFilterEl.value;
+            const filteredJobs = filter === "all"
+                ? jobs
+                : jobs.filter(j => j.status === filter);
+
+            jobsTableBodyEl.innerHTML = "";
+            if (filteredJobs.length === 0) {
+                const tr = document.createElement("tr");
+                const td = document.createElement("td");
+                td.colSpan = 5;
+                td.className = "small-text muted";
+                td.textContent = "Keine Jobs für diesen Filter.";
+                tr.appendChild(td);
+                jobsTableBodyEl.appendChild(tr);
+            } else {
+                filteredJobs.forEach(j => {
+                    const tr = document.createElement("tr");
+                    tr.style.cursor = "pointer";
+                    if (selectedJobId === j.id) tr.style.background = "rgba(15,23,42,0.9)";
+                    tr.addEventListener("click", () => {
+                        selectedJobId = j.id;
+                        renderJobsDetail();
+                    });
+
+                    const cId = document.createElement("td");
+                    cId.textContent = j.id;
+                    const cTask = document.createElement("td");
+                    cTask.textContent = j.task_id;
+                    const cStatus = document.createElement("td");
+                    const pill = document.createElement("span");
+                    pill.className = "pill";
+                    pill.textContent = j.status;
+                    cStatus.appendChild(pill);
+                    const cCreated = document.createElement("td");
+                    cCreated.textContent = j.created_at || "–";
+                    const cUpdated = document.createElement("td");
+                    cUpdated.textContent = j.updated_at || "–";
+
+                    tr.appendChild(cId);
+                    tr.appendChild(cTask);
+                    tr.appendChild(cStatus);
+                    tr.appendChild(cCreated);
+                    tr.appendChild(cUpdated);
+                    jobsTableBodyEl.appendChild(tr);
+                });
+            }
+
+            if (jobsError) {
+                jobsErrorMainEl.textContent = jobsError;
+                jobsErrorMainEl.style.display = "block";
+            } else {
+                jobsErrorMainEl.style.display = "none";
+            }
+
+            renderJobsDetail();
+        }
+
+        function renderJobsDetail() {
+            if (!selectedJobId) {
+                jobDetailNoneEl.style.display = "flex";
+                jobDetailContentEl.style.display = "none";
+                return;
+            }
+            const job = jobs.find(j => j.id === selectedJobId);
+            if (!job) {
+                jobDetailNoneEl.style.display = "flex";
+                jobDetailContentEl.style.display = "none";
+                return;
+            }
+            jobDetailNoneEl.style.display = "none";
+            jobDetailContentEl.style.display = "flex";
+
+            jobDetailIdEl.textContent = job.id;
+            jobDetailTaskEl.textContent = job.task_id;
+            jobDetailStatusEl.textContent = job.status;
+            jobDetailCreatedEl.textContent = job.created_at || "–";
+            jobDetailUpdatedEl.textContent = job.updated_at || "–";
+            jobDetailPayloadEl.textContent = safeJson(job.payload || {}, 2);
+            jobDetailResultEl.textContent = safeJson(job.result || {}, 2);
+        }
+
+        function renderConsole() {
+            consoleErrorEl.style.display = "none";
+            btnConsoleRun.disabled = consoleLoading;
+
+            consoleTabButtons.forEach(btn => {
+                const tab = btn.dataset.tab;
+                btn.classList.toggle("active", tab === consoleTab);
+            });
+
+            if (consoleTab === "coreFlow") {
+                consoleTabDescEl.textContent =
+                    "Erzeugt eine Mission → Task → Job im Core und dispatcht + synced den Job.";
+            } else {
+                consoleTabDescEl.textContent =
+                    "Sendet den Prompt direkt an WebRelay (/api/llm/call).";
+            }
+        }
+
+        function renderAll() {
+            renderCoreStatus();
+            renderWebrelayStatus();
+            renderOverviewPage();
+            renderMissionsPage();
+            renderJobsPage();
+            renderConsole();
+        }
+
+        // ==============================================
+        // Data loading
+        // ==============================================
+        async function loadCoreStatus() {
+            try {
+                coreStatusError = null;
+                const res = await fetch(CORE_BASE_URL + "/api/status");
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                coreStatus = await res.json();
+            } catch (err) {
+                coreStatus = null;
+                coreStatusError = handleFetchError(err);
+            }
+        }
+
+        async function loadWebrelayStatus() {
+            try {
+                webrelayStatusError = null;
+                const res = await fetch(WEBRELAY_BASE_URL + "/health");
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                webrelayStatus = await res.json();
+            } catch (err) {
+                webrelayStatus = null;
+                webrelayStatusError = handleFetchError(err);
+            }
+        }
+
+        async function loadMissions() {
+            try {
+                const res = await fetch(CORE_BASE_URL + "/api/missions");
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                missions = await res.json();
+            } catch (err) {
+                missions = [];
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                const res = await fetch(CORE_BASE_URL + "/api/tasks");
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                tasks = await res.json();
+            } catch (err) {
+                tasks = [];
+            }
+        }
+
+        async function loadJobs() {
+            try {
+                jobsError = null;
+                const res = await fetch(CORE_BASE_URL + "/api/jobs");
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                jobs = await res.json();
+            } catch (err) {
+                jobs = [];
+                jobsError = handleFetchError(err);
+            }
+        }
+
+        async function reloadAll() {
+            await Promise.all([
+                loadCoreStatus(),
+                loadWebrelayStatus(),
+                loadMissions(),
+                loadTasks(),
+                loadJobs()
+            ]);
+            renderAll();
+        }
+
+        // ==============================================
+        // Actions: create mission/task/job & job ops
+        // ==============================================
+        async function createMission(title, description) {
+            const body = {
+                title: title,
+                description: description || "",
+                metadata: {},
+                tags: []
+            };
+            const res = await fetch(CORE_BASE_URL + "/api/missions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error("Mission create failed: HTTP " + res.status);
+            const data = await res.json();
+            await loadMissions();
+            return data;
+        }
+
+        async function createTask(missionId, name, kind, description, params) {
+            const body = {
+                name: name,
+                description: description || "",
+                kind: kind,
+                params: params || {}
+            };
+            const res = await fetch(
+                CORE_BASE_URL + "/api/missions/" + encodeURIComponent(missionId) + "/tasks",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body)
+                }
+            );
+            if (!res.ok) throw new Error("Task create failed: HTTP " + res.status);
+            const data = await res.json();
+            await loadTasks();
+            return data;
+        }
+
+        async function createJob(taskId, payload) {
+            const res = await fetch(
+                CORE_BASE_URL + "/api/tasks/" + encodeURIComponent(taskId) + "/jobs",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ payload: payload })
+                }
+            );
+            if (!res.ok) throw new Error("Job create failed: HTTP " + res.status);
+            const data = await res.json();
+            await loadJobs();
+            return data;
+        }
+
+        async function dispatchJob(jobId) {
+            const res = await fetch(
+                CORE_BASE_URL + "/api/jobs/" + encodeURIComponent(jobId) + "/dispatch",
+                { method: "POST" }
+            );
+            if (!res.ok) throw new Error("Dispatch failed: HTTP " + res.status);
+            await loadJobs();
+            renderAll();
+        }
+
+        async function syncJob(jobId) {
+            const res = await fetch(
+                CORE_BASE_URL + "/api/jobs/" + encodeURIComponent(jobId) + "/sync",
+                { method: "POST" }
+            );
+            if (!res.ok) throw new Error("Sync failed: HTTP " + res.status);
+            const data = await res.json();
+            await loadJobs();
+            return data;
+        }
+
+        // ==============================================
+        // Actions: console flows
+        // ==============================================
+        async function sendPromptCoreFlow() {
+            const prompt = consolePromptEl.value.trim();
+            if (!prompt) {
+                consoleErrorEl.textContent = "Prompt darf nicht leer sein.";
+                consoleErrorEl.style.display = "block";
+                return;
+            }
+            consoleErrorEl.style.display = "none";
+            consoleLoading = true;
+            renderConsole();
+            consoleOutputEl.textContent = "Starte Core Mission Flow…";
+
+            try {
+                const mission = await createMission(prompt.slice(0, 80), prompt);
+                const task = await createTask(
+                    mission.id,
+                    "Agent Plan",
+                    "agent_plan",
+                    "Agent Plan Task aus Dashboard",
+                    { user_prompt: prompt }
+                );
+                const job = await createJob(task.id, { prompt: prompt });
+                selectedJobId = job.id;
+                renderJobsPage();
+                consoleOutputEl.textContent += "\n\nJob " + job.id + " dispatched…";
+
+                await dispatchJob(job.id);
+
+                let finalJob = null;
+                for (let i = 0; i < 10; i++) {
+                    const j = await syncJob(job.id);
+                    finalJob = j;
+                    if (j.status === "done" || j.status === "failed") break;
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+
+                if (!finalJob) {
+                    throw new Error("Kein Resultat erhalten.");
+                }
+
+                const result = finalJob.result || {};
+                const commentary = result.commentary || "";
+                const action = result.action || "";
+                const newJobs = result.new_jobs || [];
+                const convoUrl = result.convoUrl || result.convo_url || null;
+
+                let text = "";
+                text += "Mission: " + mission.title + "\n";
+                text += "Task: " + task.name + "\n";
+                text += "Job: " + finalJob.id + "\n";
+                text += "Status: " + finalJob.status + "\n\n";
+                text += "Result:\n" + safeJson(result, 2);
+
+                if (commentary || action || newJobs.length || convoUrl) {
+                    text += "\n\n--- LCP Ansicht ---";
+                    if (commentary) text += "\nCommentary:\n" + commentary;
+                    if (action) text += "\n\nAction:\n" + action;
+                    if (newJobs.length) text += "\n\nNew Jobs:\n" + safeJson(newJobs, 2);
+                    if (convoUrl) text += "\n\nConversation URL:\n" + convoUrl;
+                }
+
+                consoleOutputEl.textContent = text;
+            } catch (err) {
+                consoleErrorEl.textContent = handleFetchError(err);
+                consoleErrorEl.style.display = "block";
+            } finally {
+                consoleLoading = false;
+                renderConsole();
+            }
+        }
+
+        async function sendPromptDirectLLM() {
+            const prompt = consolePromptEl.value.trim();
+            if (!prompt) {
+                consoleErrorEl.textContent = "Prompt darf nicht leer sein.";
+                consoleErrorEl.style.display = "block";
+                return;
+            }
+            consoleErrorEl.style.display = "none";
+            consoleLoading = true;
+            renderConsole();
+            consoleOutputEl.textContent = "Sende Prompt direkt an WebRelay…";
+
+            try {
+                const res = await fetch(WEBRELAY_BASE_URL + "/api/llm/call", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const data = await res.json();
+
+                if (data.type === "lcp") {
+                    let text = "Typ: LCP\n";
+                    if (data.summary) text += "\nSummary:\n" + data.summary;
+                    if (data.commentary) text += "\n\nCommentary:\n" + data.commentary;
+                    if (data.action) text += "\n\nAction:\n" + data.action;
+                    if (data.new_jobs) text += "\n\nNew Jobs:\n" + safeJson(data.new_jobs, 2);
+                    if (data.convoUrl) text += "\n\nConversation URL: " + data.convoUrl;
+                    consoleOutputEl.textContent = text;
+                } else if (data.type === "plain") {
+                    consoleOutputEl.textContent = data.summary || safeJson(data, 2);
+                } else {
+                    consoleOutputEl.textContent = safeJson(data, 2);
+                }
+            } catch (err) {
+                consoleErrorEl.textContent = handleFetchError(err);
+                consoleErrorEl.style.display = "block";
+            } finally {
+                consoleLoading = false;
+                renderConsole();
+            }
+        }
+
+        // ==============================================
+        // Event listeners
+        // ==============================================
+        // reload all
+        btnReloadAll.addEventListener("click", () => {
+            reloadAll();
+        });
+
+        // create mission (simple)
+        document.getElementById("btn-create-mission").addEventListener("click", async () => {
+            const title = newMissionTitleInput.value.trim();
+            const desc = newMissionDescInput.value.trim();
+            if (!title) {
+                missionCreateErrorEl.textContent = "Titel darf nicht leer sein.";
+                missionCreateErrorEl.style.display = "block";
+                return;
+            }
+            missionCreateErrorEl.style.display = "none";
+            try {
+                const mission = await createMission(title, desc);
+                selectedMissionId = mission.id;
+                newMissionTitleInput.value = "";
+                newMissionDescInput.value = "";
+                renderAll();
+            } catch (err) {
+                missionCreateErrorEl.textContent = handleFetchError(err);
+                missionCreateErrorEl.style.display = "block";
+            }
+        });
+
+        // jobs filter
+        jobStatusFilterEl.addEventListener("change", () => {
+            renderJobsPage();
+        });
+
+        // job buttons
+        btnDispatchJob.addEventListener("click", async () => {
+            if (!selectedJobId) return;
+            try {
+                await dispatchJob(selectedJobId);
+            } catch (err) {
+                alert(handleFetchError(err));
+            }
+        });
+
+        btnSyncJob.addEventListener("click", async () => {
+            if (!selectedJobId) return;
+            try {
+                const j = await syncJob(selectedJobId);
+                selectedJobId = j.id;
+                renderAll();
+            } catch (err) {
+                alert(handleFetchError(err));
+            }
+        });
+
+        // console tabs
+        consoleTabButtons.forEach(btn => {
+            btn.addEventListener("click", () => {
+                const tab = btn.dataset.tab;
+                consoleTab = tab;
+                renderConsole();
+            });
+        });
+
+        // console run
+        btnConsoleRun.addEventListener("click", () => {
+            if (consoleTab === "coreFlow") {
+                sendPromptCoreFlow();
+            } else {
+                sendPromptDirectLLM();
+            }
+        });
+
+        // console ctrl+enter
+        consolePromptEl.addEventListener("keydown", e => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                if (consoleTab === "coreFlow") {
+                    sendPromptCoreFlow();
+                } else {
+                    sendPromptDirectLLM();
+                }
+            }
+        });
+
+        // ==============================================
+        // Init
+        // ==============================================
+        (async function init() {
+            await reloadAll();
+
+            // polling for status + jobs
+            setInterval(async () => {
+                await loadCoreStatus();
+                await loadWebrelayStatus();
+                await loadJobs();
+                renderCoreStatus();
+                renderWebrelayStatus();
+                renderOverviewPage();
+                renderJobsPage();
+            }, 5000);
+        })();
+    </script>
+</body>
+
+</html>

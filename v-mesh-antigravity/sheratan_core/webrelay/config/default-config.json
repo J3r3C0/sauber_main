@@ -1,0 +1,15 @@
+{
+    "backend": {
+        "chrome_port": 9222,
+        "timeout_ms": 120000
+    },
+    "parser": {
+        "auto_detect_lcp": true,
+        "sentinel": "}}}"
+    },
+    "watcher": {
+        "debounce_ms": 200,
+        "stability_threshold": 2000,
+        "poll_interval": 100
+    }
+}

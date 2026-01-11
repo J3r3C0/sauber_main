@@ -1,0 +1,110 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sheratan_backend
+    # Resource Limits für Performance-Optimierung
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5' # Max 0.5 CPU core
+          memory: 256M # Max 256MB RAM
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    environment:
+      - UVICORN_HOST=0.0.0.0
+      - UVICORN_PORT=8000
+      - SHERATAN_CORE_URL=http://core:8000
+    ports:
+      - "8000:8000"
+    networks:
+      - sheratan_net
+
+  core:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    container_name: sheratan_core
+    # Resource Limits für Performance-Optimierung
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0' # Max 1 CPU core
+          memory: 512M # Max 512MB RAM
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    environment:
+      - SHERATAN_METRICS_URL=http://backend:8000/metrics/module-calls
+    volumes:
+      - core-data:/app/data
+      - ./webrelay_out:/app/webrelay_out
+      - ./webrelay_in:/app/webrelay_in
+    ports:
+      - "8001:8000"
+    depends_on:
+      - backend
+    networks:
+      - sheratan_net
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: sheratan_worker
+    # Resource Limits für Performance-Optimierung
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5' # Max 0.5 CPU core
+          memory: 256M # Max 256MB RAM
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    environment:
+      # Core URL for auto-sync callbacks
+      - SHERATAN_CORE_URL=http://core:8000
+      # LLM Configuration (optional)
+      # Beispiele:
+      # - LM Studio: http://host.docker.internal:1234/v1/chat/completions
+      # - Ollama: http://host.docker.internal:11434/v1/chat/completions
+      # - OpenAI: https://api.openai.com/v1/chat/completions
+      - SHERATAN_LLM_BASE_URL=${SHERATAN_LLM_BASE_URL:-}
+      - SHERATAN_LLM_MODEL=${SHERATAN_LLM_MODEL:-gpt-4-mini}
+      - SHERATAN_LLM_API_KEY=${SHERATAN_LLM_API_KEY:-}
+    volumes:
+      - ./webrelay_out:/webrelay_out
+      - ./webrelay_in:/webrelay_in
+      - ./project:/workspace/project
+    depends_on:
+      - core
+    networks:
+      - sheratan_net
+
+  webrelay:
+    build:
+      context: ./webrelay
+      dockerfile: Dockerfile
+    container_name: sheratan_webrelay
+    environment:
+      - BROWSER_URL=http://host.docker.internal:9222
+      - WEB_INTERFACE_URL=https://chatgpt.com
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    networks:
+      - sheratan_net
+    volumes:
+      - ./webrelay_out:/app/webrelay_out
+      - ./webrelay_in:/app/webrelay_in
+
+volumes:
+  core-data:
+    # relay-out und relay-in jetzt als Host-Mounts (./webrelay_out, ./webrelay_in)
+
+
+networks:
+  sheratan_net:
+    driver: bridge

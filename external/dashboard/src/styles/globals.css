@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sheratan-bg: #02040A;
+  --color-sheratan-panel: #050814;
+  --color-sheratan-card: #080C18;
+  --color-sheratan-accent: #00C3D4;
+  --color-sheratan-accent-soft: #00C3D433;
+  --color-sheratan-danger: #ff5c7a;
+  --color-sheratan-warning: #fbbf24;
+  --color-sheratan-success: #10b981;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0A0E1A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1A2332;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2A3342;
+}

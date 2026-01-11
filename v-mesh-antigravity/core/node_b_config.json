@@ -1,0 +1,8 @@
+{
+    "node_id": "Host_B",
+    "role": "worker",
+    "synapse_hub_url": "http://192.168.1.206:3000",
+    "p2p_mesh_ip": "192.168.1.206",
+    "hotspot_mode": true,
+    "support_continuity": true
+}

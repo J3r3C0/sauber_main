@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Sheratan Minimal Control Panel</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #020617;
+            --border: #1e293b;
+            --text: #e5e7eb;
+            --muted: #9ca3af;
+            --accent: #0ea5e9;
+            --accent-soft: rgba(56, 189, 248, 0.1);
+            --danger: #f97373;
+            --success: #22c55e;
+            --font: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                "Segoe UI", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--font);
+            background: radial-gradient(circle at top left, #0f172a 0, #020617 55%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+        }
+
+        .app-root {
+            width: 100%;
+            max-width: 1100px;
+            margin: 16px;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: rgba(2, 6, 23, 0.95);
+            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.9);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            background: radial-gradient(circle at left top, #0ea5e9 0, #020617 55%);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-mark {
+            height: 28px;
+            width: 28px;
+            border-radius: 999px;
+            background: radial-gradient(circle at 30% 0%, #e0f2fe, #0ea5e9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #020617;
+            font-weight: 900;
+            font-size: 18px;
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.9);
+        }
+
+        .logo-title {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+        }
+
+        .logo-sub {
+            font-size: 10px;
+            color: rgba(15, 23, 42, 0.9);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, 0.35);
+            background: rgba(15, 23, 42, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #6b7280;
+        }
+
+        .status-dot.ok {
+            background: var(--success);
+        }
+
+        .status-dot.fail {
+            background: var(--danger);
+        }
+
+        .status-label {
+            font-size: 11px;
+        }
+
+        .btn-reload {
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, 0.5);
+            background: rgba(15, 23, 42, 0.8);
+            color: #e5e7eb;
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .btn-reload:hover {
+            background: #020617;
+        }
+
+        .body {
+            display: grid;
+            grid-template-columns: 1.1fr 1.1fr;
+            gap: 12px;
+            padding: 12px;
+            min-height: 0;
+            flex: 1;
+        }
+
+        .card {
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: #020617;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .card-title {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .card-sub {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .error {
+            color: var(--danger);
+            font-size: 10px;
+            margin-top: 4px;
+        }
+
+        input,
+        textarea,
+        button,
+        select {
+            font-family: inherit;
+        }
+
+        textarea {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #020617;
+            color: var(--text);
+            font-size: 11px;
+            padding: 7px 9px;
+            resize: none;
+            min-height: 170px;
+        }
+
+        textarea::placeholder {
+            color: #6b7280;
+        }
+
+        .tab-row {
+            display: flex;
+            gap: 4px;
+            margin: 8px 0 6px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            padding: 5px 6px;
+            font-size: 11px;
+            background: rgba(15, 23, 42, 0.95);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .tab-btn.active {
+            background: var(--accent-soft);
+            border-color: var(--accent);
+            color: var(--accent);
+            font-weight: 600;
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
+        }
+
+        .btn-primary {
+            width: 100%;
+            border-radius: 10px;
+            border: none;
+            padding: 7px;
+            background: var(--accent);
+            color: #020617;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.05);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        .console-desc {
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        pre {
+            font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+                "Liberation Mono", "Courier New", monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #020617;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            padding: 7px 9px;
+            flex: 1;
+            overflow: auto;
+        }
+
+        @media (max-width: 900px) {
+            .app-root {
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .body {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-root">
+        <header class="header">
+            <div class="header-left">
+                <div class="logo-mark">S</div>
+                <div>
+                    <div class="logo-title">SHERATAN</div>
+                    <div class="logo-sub">Minimal Control Panel</div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="status-pill" id="core-pill">
+                    <span class="status-dot" id="core-dot"></span>
+                    <span class="status-label">Core: <span id="core-status">unknown</span></span>
+                </div>
+                <div class="status-pill" id="webrelay-pill">
+                    <span class="status-dot" id="webrelay-dot"></span>
+                    <span class="status-label">WebRelay: <span id="webrelay-status">unknown</span></span>
+                </div>
+                <button class="btn-reload" id="btn-reload">Reload Status</button>
+            </div>
+        </header>
+
+        <div class="body">
+            <!-- Left: Console input -->
+            <section class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">LLM Console</div>
+                        <div class="card-sub">Prompt</div>
+                    </div>
+                    <div class="muted">Ctrl+Enter = senden</div>
+                </div>
+
+                <textarea id="prompt"
+                    placeholder="Beschreibe eine Mission / Frage / Aufgabe… (Ctrl+Enter zum Senden)"></textarea>
+
+                <div class="tab-row">
+                    <button class="tab-btn active" data-tab="coreFlow">Core Mission Flow</button>
+                    <button class="tab-btn" data-tab="directLLM">Direkter LLM Call</button>
+                </div>
+
+                <div class="console-desc" id="console-desc">
+                    Erzeugt eine Mission → Task → Job im Core und dispatcht + synced den Job.
+                </div>
+
+                <button class="btn-primary" id="btn-send">Prompt ausführen</button>
+                <div class="error" id="console-error" style="display:none;"></div>
+            </section>
+
+            <!-- Right: Output -->
+            <section class="card">
+                <div class="card-header">
+                    <div class="card-title">Output</div>
+                    <div class="card-sub">Result / LCP Aktionen</div>
+                </div>
+                <pre id="console-output">Awaiting input…</pre>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // ======================
+        // Config
+        // ======================
+        const CORE_BASE_URL = "http://localhost:8001";
+        const WEBRELAY_BASE_URL = "http://localhost:3000";
+
+        // ======================
+        // State
+        // ======================
+        let consoleTab = "coreFlow";
+        let consoleLoading = false;
+
+        let coreStatus = null;
+        let coreStatusError = null;
+        let webrelayStatus = null;
+        let webrelayStatusError = null;
+
+        // ======================
+        // DOM
+        // ======================
+        const coreDot = document.getElementById("core-dot");
+        const coreStatusText = document.getElementById("core-status");
+        const webrelayDot = document.getElementById("webrelay-dot");
+        const webrelayStatusTe

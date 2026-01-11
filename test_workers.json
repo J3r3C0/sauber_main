@@ -1,0 +1,25 @@
+{
+  "test_worker_1": {
+    "worker_id": "test_worker_1",
+    "capabilities": [
+      {
+        "kind": "test",
+        "cost": 10
+      }
+    ],
+    "status": "online",
+    "last_seen": 1768093919.016095,
+    "endpoint": null,
+    "stats": {
+      "latency_ms_ema": 620.0,
+      "success_ema": 0.4505600000000001,
+      "n": 4,
+      "last_seen_ts": 1768093919.016095,
+      "consecutive_failures": 3,
+      "is_offline": true,
+      "cooldown_until": 1768094219.016095,
+      "active_jobs": 0
+    },
+    "meta": {}
+  }
+}

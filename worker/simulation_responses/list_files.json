@@ -1,0 +1,11 @@
+{
+    "ok": true,
+    "action": "list_files_result",
+    "files": [
+        "/workspace/project/src/main.py",
+        "/workspace/project/src/utils.py",
+        "/workspace/project/tests/test_main.py",
+        "/workspace/project/README.md"
+    ],
+    "commentary": "[SIMULATION] Deterministic file list for testing"
+}

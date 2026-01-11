@@ -1,15 +1,107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sheratan Production Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🚀 Sheratan Ledger</h1>
+            <div class="status-badge" id="systemStatus">
+                <span class="dot"></span>
+                <span>System Status</span>
+            </div>
+        </header>
 
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Architekturdiagramm erstellen</title>
-    </head>
+        <!-- Main Grid -->
+        <div class="grid">
+            <!-- Job Creation -->
+            <section class="card job-creation">
+                <h2>📝 Create Job</h2>
+                
+                <div class="form-group">
+                    <label>Quick Launch</label>
+                    <div class="button-group">
+                        <button class="btn btn-primary" onclick="launchStandardJob()">
+                            🤖 Code Analysis
+                        </button>
+                        <button class="btn btn-secondary" onclick="launchFileOp()">
+                            📁 List Files
+                        </button>
+                    </div>
+                </div>
 
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+                <div class="form-group">
+                    <label>Custom Job (JSON)</label>
+                    <textarea id="customJobJson" rows="6" placeholder='{"kind": "agent_plan", "params": {...}}'></textarea>
+                    <button class="btn btn-accent" onclick="launchCustomJob()">
+                        🚀 Launch Custom
+                    </button>
+                </div>
+
+                <div id="jobResult" class="result"></div>
+            </section>
+
+            <!-- Live Jobs -->
+            <section class="card jobs-monitor">
+                <h2>⚙️ Active Jobs</h2>
+                <div id="jobsList" class="jobs-list">
+                    <div class="loading">Loading jobs...</div>
+                </div>
+                <button class="btn btn-sm" onclick="refreshJobs()">🔄 Refresh</button>
+            </section>
+
+            <!-- Workers -->
+            <section class="card workers">
+                <h2>👷 Workers</h2>
+                <div id="workersList" class="workers-list">
+                    <div class="loading">Loading workers...</div>
+                </div>
+            </section>
+
+            <!-- Balance -->
+            <section class="card balance">
+                <h2>💰 Balance</h2>
+                <div id="balanceInfo" class="balance-info">
+                    <div class="balance-item">
+                        <span class="label">alice</span>
+                        <span class="value" id="aliceBalance">-</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Governance -->
+            <section class="card governance">
+                <h2>📊 Governance</h2>
+                <div id="governanceInfo" class="governance-info">
+                    <div class="stat">
+                        <span class="label">Mode</span>
+                        <span class="value" id="govMode">Production</span>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Margin Range</span>
+                        <span class="value">10-40%</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Activity -->
+            <section class="card activity">
+                <h2>📜 Recent Activity</h2>
+                <div id="activityLog" class="activity-log">
+                    <div class="log-entry">
+                        <span class="time">Just now</span>
+                        <span class="message">Dashboard loaded</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

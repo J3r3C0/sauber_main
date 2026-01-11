@@ -9,7 +9,7 @@ echo.
 
 REM Set Governance to Dry-Run
 set GOV_ENABLED=1
-set GOV_DRY_RUN=1
+set GOV_DRY_RUN=0
 set LEDGER_DEFAULT_MARGIN=0.15
 set LEDGER_MAX_MARGIN=0.50
 

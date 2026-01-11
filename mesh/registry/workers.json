@@ -21,19 +21,27 @@
       {
         "kind": "pdf_to_json",
         "cost": 20
+      },
+      {
+        "kind": "agent_plan",
+        "cost": 100
+      },
+      {
+        "kind": "llm_call",
+        "cost": 100
       }
     ],
     "status": "online",
-    "last_seen": 1768101364.8226228,
+    "last_seen": 1768161762.8788254,
     "endpoint": null,
     "stats": {
-      "latency_ms_ema": 30895.172424083517,
-      "success_ema": 0.9981110534068525,
-      "n": 24,
-      "last_seen_ts": 1768101364.8226228,
+      "latency_ms_ema": 19385.523824000004,
+      "success_ema": 0.9232000000000002,
+      "n": 3,
+      "last_seen_ts": 1768161762.8788254,
       "consecutive_failures": 0,
       "is_offline": false,
-      "cooldown_until": 1768100508.66919,
+      "cooldown_until": 0.0,
       "active_jobs": 0
     },
     "meta": {}
@@ -55,7 +63,7 @@
       }
     ],
     "status": "online",
-    "last_seen": 1768100464.5599499,
+    "last_seen": 1768161118.616918,
     "endpoint": "http://localhost:3000",
     "stats": {
       "latency_ms_ema": 750.0,

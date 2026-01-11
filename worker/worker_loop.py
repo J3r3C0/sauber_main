@@ -685,13 +685,15 @@ def main_loop():
             print(f"[worker] Debug: Registry file path: {registry_file}")
             registry = WorkerRegistry(registry_file)
             
-            # Capability: File operations only (no LLM)
+            # Capability: File operations + LLM calls
             capabilities = [
                 WorkerCapability(kind="list_files", cost=10),
                 WorkerCapability(kind="read_file", cost=10),
                 WorkerCapability(kind="write_file", cost=50),
                 WorkerCapability(kind="patch_file", cost=40),
                 WorkerCapability(kind="pdf_to_json", cost=20),
+                WorkerCapability(kind="agent_plan", cost=100),
+                WorkerCapability(kind="llm_call", cost=100),
             ]
             
             registry.register(WorkerInfo(

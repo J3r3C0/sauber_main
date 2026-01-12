@@ -1,7 +1,0 @@
-{
-    "name": "M2 Worker Job",
-    "kind": "worker_test",
-    "params": {
-        "test": "m2"
-    }
-}

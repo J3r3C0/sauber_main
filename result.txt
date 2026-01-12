@@ -1,1 +1,0 @@
-{"ok": false, "action": "error", "error": "500 Server Error: Internal Server Error for url: http://localhost:3000/api/job/submit", "worker_id": "default_worker"}

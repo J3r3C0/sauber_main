@@ -1,1 +1,0 @@
-{"ok": false, "action": "error", "error": "No SHERATAN_LLM_BASE_URL configured", "worker_id": "default_worker"}

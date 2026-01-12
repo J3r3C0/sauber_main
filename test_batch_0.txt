@@ -1,2 +1,0 @@
-Batch test file 0
-Content line 2

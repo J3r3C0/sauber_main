@@ -1,7 +1,0 @@
-{
-    "base_token_price": 0.0012,
-    "latency_penalty_factor": 1.5,
-    "energy_efficiency_bonus": 0.8,
-    "thermal_stress_multiplier": 2.0,
-    "update_cycle_ms": 1000
-}

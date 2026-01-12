@@ -156,16 +156,52 @@ class Dispatcher:
 from core.chain_runner import ChainRunner
 chain_runner = ChainRunner()
 
+# --- PHASE A: State Machine ---
+from core.state_machine import SystemStateMachine, SystemState
+state_machine = SystemStateMachine(
+    load_path="runtime/system_state.json",
+    log_path="logs/state_transitions.jsonl"
+)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. Start Dispatcher (Legacy)
+    # 1. Initialize State Machine
+    state_machine.load_or_init()
+    print(f"[state] System initialized in state: {state_machine.snapshot().state}")
+    
+    # 2. Start Dispatcher (Legacy)
     dispatcher.start()
-    # 2. Start Chain Runner (Phase 10.2)
+    
+    # 3. Start Chain Runner (Phase 10.2)
     chain_runner.start()
+    
+    # 4. Transition to OPERATIONAL if health checks pass
+    try:
+        # Quick health check
+        health = await _evaluate_system_health()
+        if health["overall"] == "operational":
+            state_machine.transition(
+                SystemState.OPERATIONAL,
+                reason="All core services started successfully",
+                meta={"services": health["services"]}
+            )
+        elif health["overall"] == "degraded":
+            state_machine.transition(
+                SystemState.DEGRADED,
+                reason="Some services unavailable at startup",
+                meta={"services": health["services"]}
+            )
+    except Exception as e:
+        print(f"[state] Warning: Could not evaluate health at startup: {e}")
     
     yield
     
     # Clean up
+    state_machine.transition(
+        SystemState.PAUSED,
+        reason="System shutdown initiated",
+        actor="system"
+    )
     dispatcher._running = False
     chain_runner.stop()
 
@@ -743,7 +779,170 @@ async def get_system_health():
 
 @app.get("/api/status")
 def status():
-    return {"status": "ok", "missions": len(storage.list_missions())}
+    snap = state_machine.snapshot()
+    return {
+        "status": "ok",
+        "missions": len(storage.list_missions()),
+        "system_state": snap.state,
+        "state_since": snap.since_ts
+    }
+
+
+# ------------------------------------------------------------------------------
+# PHASE A: STATE MACHINE ENDPOINTS
+# ------------------------------------------------------------------------------
+
+async def _evaluate_system_health() -> Dict[str, Any]:
+    """Evaluate system health and determine appropriate state."""
+    services = [
+        {"name": "Core API", "port": 8001, "critical": True},
+        {"name": "WebRelay", "port": 3000, "critical": True},
+        {"name": "Broker", "port": 9000, "critical": False},
+        {"name": "Host-A", "port": 8081, "critical": False},
+        {"name": "Dashboard", "port": 3001, "critical": False}
+    ]
+    
+    results = {}
+    critical_down = []
+    non_critical_down = []
+    
+    for s in services:
+        status = "down"
+        if s['port'] == 8001:
+            status = "active"  # Core is always up if we're running
+        else:
+            targets = ['127.0.0.1', 'localhost']
+            for target in targets:
+                try:
+                    conn = asyncio.open_connection(target, s['port'])
+                    _, writer = await asyncio.wait_for(conn, timeout=1.0)
+                    writer.close()
+                    await writer.wait_closed()
+                    status = "active"
+                    break
+                except:
+                    pass
+        
+        results[s['name']] = status
+        if status == "down":
+            if s['critical']:
+                critical_down.append(s['name'])
+            else:
+                non_critical_down.append(s['name'])
+    
+    # Determine overall state
+    if critical_down:
+        overall = "degraded"  # Critical service down
+    elif non_critical_down:
+        overall = "degraded"  # Non-critical services down
+    else:
+        overall = "operational"
+    
+    return {
+        "overall": overall,
+        "services": results,
+        "critical_down": critical_down,
+        "non_critical_down": non_critical_down
+    }
+
+
+@app.get("/api/system/state")
+async def get_system_state():
+    """Get current system state with reasoning."""
+    snap = state_machine.snapshot()
+    health = await _evaluate_system_health()
+    
+    # Calculate uptime in current state
+    state_duration = time.time() - snap.since_ts
+    hours, rem = divmod(int(state_duration), 3600)
+    minutes, seconds = divmod(rem, 60)
+    
+    response = {
+        "state": snap.state,
+        "since": snap.since_ts,
+        "duration": f"{hours}h {minutes}m {seconds}s",
+        "health": health,
+        "counters": snap.counters or {},
+        "last_transition": None
+    }
+    
+    if snap.last_transition:
+        response["last_transition"] = {
+            "event_id": snap.last_transition.event_id,
+            "timestamp": snap.last_transition.ts,
+            "from": snap.last_transition.prev_state,
+            "to": snap.last_transition.next_state,
+            "reason": snap.last_transition.reason,
+            "actor": snap.last_transition.actor,
+            "meta": snap.last_transition.meta or {}
+        }
+    
+    return response
+
+
+@app.post("/api/system/state/transition")
+async def transition_system_state(payload: dict):
+    """Manually trigger a state transition."""
+    next_state_str = payload.get("state")
+    reason = payload.get("reason")
+    actor = payload.get("actor", "user")
+    
+    if not next_state_str or not reason:
+        raise HTTPException(400, "Missing 'state' or 'reason'")
+    
+    try:
+        next_state = SystemState(next_state_str)
+    except ValueError:
+        raise HTTPException(400, f"Invalid state: {next_state_str}")
+    
+    try:
+        event = state_machine.transition(
+            next_state,
+            reason=reason,
+            actor=actor,
+            meta=payload.get("meta")
+        )
+        return {
+            "ok": True,
+            "event": {
+                "event_id": event.event_id,
+                "from": event.prev_state,
+                "to": event.next_state,
+                "reason": event.reason,
+                "timestamp": event.ts
+            }
+        }
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/system/state/history")
+def get_state_history(limit: int = 50):
+    """Get recent state transitions from log."""
+    import os
+    log_path = state_machine.log_path
+    
+    if not os.path.exists(log_path):
+        return []
+    
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        
+        # Get last N lines
+        recent = lines[-limit:] if len(lines) > limit else lines
+        
+        events = []
+        for line in recent:
+            try:
+                event = json.loads(line.strip())
+                events.append(event)
+            except:
+                pass
+        
+        return events
+    except Exception as e:
+        raise HTTPException(500, f"Error reading state history: {e}")
 
 
 # ------------------------------------------------------------------------------

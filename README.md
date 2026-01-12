@@ -220,6 +220,9 @@ Edit `config/.env` to change:
 ## Documentation
 
 - [SYSTEM_IST_DEFINITION.md](docs/SYSTEM_IST_DEFINITION.md) - **Formal system state definition (verified 2026-01-12)**
+- [SYSTEM_SOLL_DEFINITION.md](docs/SYSTEM_SOLL_DEFINITION.md) - **Normative target state definition**
+- [ABWEICHUNGSMATRIX.md](docs/ABWEICHUNGSMATRIX.md) - **Gap analysis: Current vs. Target state**
+- [PHASE_A_STATE_MACHINE.md](docs/PHASE_A_STATE_MACHINE.md) - **Phase A: State Machine Implementation**
 - [MIGRATION_MAP.md](docs/MIGRATION_MAP.md) - Component migration details
 - [SHERATAN_REFACTORING_PLAN.md](docs/SHERATAN_REFACTORING_PLAN.md) - Future production features
 - [MESH_CAPABILITIES.md](docs/MESH_CAPABILITIES.md) - Mesh capabilities overview

@@ -6,6 +6,7 @@ FastAPI Kernel for Missions → Tasks → Jobs → Worker Dispatch → LCP Follo
 from __future__ import annotations
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -149,6 +150,24 @@ class Dispatcher:
                 self.lcp.handle_job_result(synced)
 
 
+
+# --- PHASE 10.2: Chain Runner ---
+from core.chain_runner import ChainRunner
+chain_runner = ChainRunner()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Start Dispatcher (Legacy)
+    dispatcher.start()
+    # 2. Start Chain Runner (Phase 10.2)
+    chain_runner.start()
+    
+    yield
+    
+    # Clean up
+    dispatcher._running = False
+    chain_runner.stop()
+
 # ------------------------------------------------------------------------------
 # APP INITIALISIERUNG
 # ------------------------------------------------------------------------------
@@ -156,7 +175,8 @@ class Dispatcher:
 app = FastAPI(
     title="Sheratan Core v2",
     description="Mission/Task/Job orchestration kernel with WebRelay & LCP",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # CORS erlauben – für HUD & externe Tools
@@ -217,7 +237,7 @@ chain_manager = JobChainManager(
 
 # Dispatcher instantiation (BASIS FOR ALL AUTOMATION)
 dispatcher = Dispatcher(bridge, lcp)
-dispatcher.start()
+# dispatcher.start() # Now handled via lifespan
 
 
 # ------------------------------------------------------------------------------
@@ -417,47 +437,61 @@ def sync_job(job_id: str):
         correlation_id=f"job:{job_id}",
     )
 
-    # 3) Phase 9: LCP Chain Handling
-    # Check if this is an agent_plan job with LCP v1 response
+    # 3) Phase 10.1: Chain Context + Specs Handling (Thin Sync)
     if job.result and isinstance(job.result, dict):
         from core.lcp_actions import parse_lcp
+        from core.context_updaters import update_context_from_job_result
         
-        # Try to parse LCP envelope (v1 or legacy)
+        # Try to parse LCP envelope
         followup, final = parse_lcp(job.result, default_chain_id=job_id)
         
+        # Determine chain_id
+        task = storage.get_task(job.task_id)
+        chain_id = task.params.get("chain_id") or job_id if task else job_id
+
+        # Update chain context from job result (e.g. store file_list after walk_tree)
+        with get_db() as conn:
+            # Ensure context exists
+            storage.ensure_chain_context(conn, chain_id, job.task_id)
+            
+            # Update artifacts (file_list, file_blobs, etc)
+            artifact_key = update_context_from_job_result(
+                conn,
+                chain_id=chain_id,
+                job_kind=job.payload.get("kind") if isinstance(job.payload, dict) else "unknown",
+                job_id=job_id,
+                result=job.result,
+                set_chain_artifact_fn=storage.set_chain_artifact
+            )
+            if artifact_key:
+                print(f"[sync_job] Updated artifact '{artifact_key}' for chain {chain_id[:12]}")
+
         if followup or final:
-            # This is a chain job - handle via JobChainManager
             print(f"[sync_job] LCP envelope detected for job {job_id[:12]}...")
             
-            # Get task to determine chain_id
-            task = storage.get_task(job.task_id)
-            if task:
-                chain_id = task.params.get("chain_id") or job_id
+            # Ensure chain exists in manager (creates file if needed)
+            chain_manager.ensure_chain(chain_id=chain_id, root_job_id=job_id)
+            
+            if followup:
+                # Register follow-up SPECS (not jobs!)
+                print(f"[sync_job] Registering {len(followup.jobs)} followup specs...")
+                chain_manager.register_followup_specs(
+                    chain_id=chain_id,
+                    task_id=job.task_id,
+                    root_job_id=job_id,
+                    parent_llm_job_id=job_id,
+                    job_specs=followup.jobs
+                )
                 
-                # Ensure chain exists
-                chain_manager.ensure_chain(chain_id=chain_id, root_job_id=job_id)
+                # Note: dispatch_next_llm_step is REMOVED here. 
+                # The ChainRunner (Phase 10.2) will pick up the 'needs_tick' flag.
                 
-                if followup:
-                    # Register followup jobs
-                    print(f"[sync_job] Registering {len(followup.jobs)} followup jobs...")
-                    chain_manager.register_followup_jobs(
-                        chain_id=chain_id,
-                        root_job_id=job_id,
-                        parent_llm_job_id=job_id,
-                        job_specs=followup.jobs
-                    )
-                    
-                    # Dispatch next LLM step
-                    chain_manager.dispatch_next_llm_step(chain_id=chain_id)
-                    
-                elif final:
-                    # Close chain with final answer
-                    print(f"[sync_job] Closing chain {chain_id[:12]} with final answer...")
-                    chain_manager.close_chain(chain_id=chain_id, final_answer=final.answer)
+            elif final:
+                # Close chain with final answer
+                print(f"[sync_job] Closing chain {chain_id[:12]} with final answer...")
+                chain_manager.close_chain(chain_id=chain_id, final_answer=final.answer)
         else:
             # No LCP envelope - run old LCP handler for legacy support
-            # Note: Only one thread (the winner of try_sync_result) will reach this 
-            # because the result file is unlinked immediately after reading.
             with measured_call(
                 source="core_v2.api.sync_job",
                 target="core_v2.lcp_actions.handle_job_result",

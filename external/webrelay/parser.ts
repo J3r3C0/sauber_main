@@ -24,21 +24,14 @@ function extractJsonFromMarkdown(text: string): string | null {
         return codeBlockMatch[1].trim();
     }
 
-    // 2. Look for all potential JSON objects
-    // We search for something that looks like an object starting with { and ending with }
-    const matches = Array.from(text.matchAll(/\{[\s\S]*?\}/g));
-    if (matches.length > 0) {
-        // Sort by length descending - usually the main response is the largest object
-        // Also prioritize objects containing key protocol fields
-        const candidates = matches.map(m => m[0]);
+    // 2. Look for potential JSON objects greedily (first { to last })
+    // Non-greedy /\{[\s\S]*?\}/g often fails on nested objects.
+    // We try to find the outermost bounds.
+    const startIdx = text.indexOf('{');
+    const endIdx = text.lastIndexOf('}');
 
-        const bestCandidate = candidates.sort((a, b) => {
-            const scoreA = (a.includes('"decision"') ? 1000 : 0) + (a.includes('"action"') ? 1000 : 0) + a.length;
-            const scoreB = (b.includes('"decision"') ? 1000 : 0) + (b.includes('"action"') ? 1000 : 0) + b.length;
-            return scoreB - scoreA;
-        })[0];
-
-        return bestCandidate;
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+        return text.slice(startIdx, endIdx + 1);
     }
 
     return null;

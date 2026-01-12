@@ -60,6 +60,10 @@ class JobChainManager:
     - Dispatcher executes child jobs, completes them
     - Core calls on_job_complete() for every completion
     - When pending empty -> dispatch_next_llm_step() creates new agent_plan job (pending)
+    
+    [Phase 10.1]
+    - register_followup_specs() persists intentions to chain_specs table
+    - resolve_chain_spec() resolves result-refs (paths_from_artifact / inputs_from_job_result)
     """
 
     def __init__(
@@ -202,6 +206,7 @@ class JobChainManager:
         self,
         *,
         chain_id: str,
+        task_id: str,
         root_job_id: str,
         parent_llm_job_id: str,
         job_specs: List[Dict[str, Any]],
@@ -260,7 +265,7 @@ class JobChainManager:
 
             job = Job(
                 id=job_id,
-                task_id=root_job_id,
+                task_id=task_id,
                 payload=payload,
                 status="pending",
                 result=None,
@@ -296,6 +301,127 @@ class JobChainManager:
             self.logger.info(f"[chain:{chain_id}] dispatched {len(child_job_ids)} child jobs at depth={next_depth}")
 
         return {"ok": True, "reason": None, "dispatched": len(child_job_ids), "child_job_ids": child_job_ids}
+
+    def register_followup_specs(
+        self,
+        *,
+        chain_id: str,
+        task_id: str,
+        root_job_id: str,
+        parent_llm_job_id: str,
+        job_specs: List[Dict[str, Any]],
+    ) -> List[str]:
+        """
+        [Phase 10.1]
+        Registers followup specifications in the chain_specs table.
+        It does NOT create jobs immediately.
+        """
+        from core.database import get_db
+        from core import storage
+
+        with get_db() as conn:
+            # ensure context exists (idempotent)
+            storage.ensure_chain_context(conn, chain_id, task_id)
+
+            inserted = storage.append_chain_specs(
+                conn,
+                chain_id=chain_id,
+                task_id=task_id,
+                root_job_id=root_job_id,
+                parent_job_id=parent_llm_job_id,
+                specs=job_specs,
+            )
+            
+            # Mark chain as needing attention from the runner
+            if inserted:
+                storage.set_chain_needs_tick(conn, chain_id, True)
+
+            if self.logger:
+                self.logger.info(f"[chain:{chain_id}] registered {len(inserted)} specs for followup")
+            
+            return inserted
+
+    def resolve_chain_spec(
+        self,
+        *,
+        chain_id: str,
+        spec_id: str,
+    ) -> Dict[str, Any]:
+        """
+        [Phase 10.1]
+        Loads a spec and chain context, resolves any 'result-refs',
+        and saves the resolved_params_json.
+        Returns the resolved params dictionary.
+        """
+        from core.database import get_db
+        from core import storage
+        from core.result_ref import safe_get, apply_transform
+
+        with get_db() as conn:
+            ctx = storage.get_chain_context(conn, chain_id)
+            if not ctx:
+                raise ValueError(f"chain_context missing: {chain_id}")
+
+            row = conn.execute(
+                "SELECT kind, params_json, resolved, resolved_params_json FROM chain_specs WHERE chain_id=? AND spec_id=?",
+                (chain_id, spec_id),
+            ).fetchone()
+            
+            if not row:
+                raise ValueError(f"spec not found: {chain_id}/{spec_id}")
+
+            kind = row[0]
+            params_json = row[1]
+            resolved = int(row[2])
+            resolved_params_json = row[3]
+
+            if resolved == 1 and resolved_params_json:
+                return storage._json_loads(resolved_params_json)
+
+            params = storage._json_loads(params_json) or {}
+            artifacts = ctx.get("artifacts") or {}
+            resolved_params = dict(params)
+
+            # 1) resolve 'paths_from_artifact'
+            pfa = params.get("paths_from_artifact")
+            if isinstance(pfa, str):
+                art = artifacts.get(pfa, {})
+                # Artifact format is { "value": ..., "meta": ... }
+                resolved_params["paths"] = art.get("value", [])
+                if "paths_from_artifact" in resolved_params:
+                    del resolved_params["paths_from_artifact"]
+
+            # 2) resolve 'inputs_from_job_result': {job_id, json_path, transform, target_param}
+            if "inputs_from_job_result" in params and isinstance(params["inputs_from_job_result"], dict):
+                rr = params["inputs_from_job_result"]
+                job_id = rr.get("job_id")
+                json_path = rr.get("json_path", "")
+                transform = rr.get("transform")
+                target_param = rr.get("target_param", "input")
+
+                # load job result from existing jobs table
+                jrow = conn.execute("SELECT result FROM jobs WHERE id=?", (job_id,)).fetchone()
+                job_result = storage._json_loads(jrow[0]) if jrow and jrow[0] else None
+
+                extracted = safe_get(job_result, json_path, default=None)
+                extracted = apply_transform(extracted, transform)
+                resolved_params[target_param] = extracted
+                if "inputs_from_job_result" in resolved_params:
+                    del resolved_params["inputs_from_job_result"]
+
+            # Mark spec as resolved in DB
+            now = storage._now_iso()
+            conn.execute(
+                """
+                UPDATE chain_specs
+                SET resolved=1, resolved_params_json=?, updated_at=?
+                WHERE chain_id=? AND spec_id=?
+                """,
+                (storage._json_dumps(resolved_params), now, chain_id, spec_id),
+            )
+            conn.commit()
+            
+            return resolved_params
 
     # -------------------------
     # REQUIRED: on_job_complete()

@@ -29,16 +29,24 @@
       {
         "kind": "llm_call",
         "cost": 100
+      },
+      {
+        "kind": "walk_tree",
+        "cost": 20
+      },
+      {
+        "kind": "read_file_batch",
+        "cost": 50
       }
     ],
     "status": "online",
-    "last_seen": 1768161762.8788254,
+    "last_seen": 1768172502.7553453,
     "endpoint": null,
     "stats": {
-      "latency_ms_ema": 19385.523824000004,
-      "success_ema": 0.9232000000000002,
-      "n": 3,
-      "last_seen_ts": 1768161762.8788254,
+      "latency_ms_ema": 86253.77231762321,
+      "success_ema": 0.9838938726400002,
+      "n": 10,
+      "last_seen_ts": 1768172502.7553453,
       "consecutive_failures": 0,
       "is_offline": false,
       "cooldown_until": 0.0,
@@ -63,7 +71,7 @@
       }
     ],
     "status": "online",
-    "last_seen": 1768161118.616918,
+    "last_seen": 1768165254.9808338,
     "endpoint": "http://localhost:3000",
     "stats": {
       "latency_ms_ema": 750.0,

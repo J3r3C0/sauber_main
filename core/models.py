@@ -186,3 +186,51 @@ class Job(BaseModel):
     def to_dict(self) -> Dict[str, Any]:
         return self.model_dump()
 
+
+# ------------------------------------------------------------------------------
+# PHASE 10.1: CHAIN MODELS
+# ------------------------------------------------------------------------------
+
+class ChainContext(BaseModel):
+    """Context and artifacts for an autonomous chain."""
+    chain_id: str
+    task_id: str
+    state: str = "running"  # running, done, error
+    limits: Dict[str, Any] = Field(default_factory=lambda: {
+        "max_files": 50,
+        "max_total_bytes": 200_000,
+        "max_bytes_per_file": 50_000,
+    })
+    artifacts: Dict[str, Any] = Field(default_factory=dict)
+    error: Optional[Dict[str, Any]] = None
+    needs_tick: int = 0
+    last_tick_at: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.model_dump()
+
+
+class ChainSpec(BaseModel):
+    """Specification for a follow-up job in a chain."""
+    spec_id: str
+    chain_id: str
+    task_id: str
+    root_job_id: str
+    parent_job_id: str
+    kind: str
+    params: Dict[str, Any]
+    resolved_params: Optional[Dict[str, Any]] = None
+    resolved: bool = False
+    status: str = "pending"  # pending, dispatched, done, failed
+    dedupe_key: str
+    claim_id: Optional[str] = None
+    claimed_until: Optional[str] = None
+    dispatched_job_id: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.model_dump()
+

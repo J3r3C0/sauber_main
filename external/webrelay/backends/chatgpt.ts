@@ -11,8 +11,13 @@ import { LLMBackend, BackendCallResult } from '../types.js';
 const BROWSER_URL = process.env.BROWSER_URL || 'http://127.0.0.1:9222';
 const WEB_INTERFACE_URL = process.env.WEB_INTERFACE_URL || 'https://chatgpt.com';
 const SEL_TEXTAREA = 'textarea[aria-label="Message ChatGPT"], textarea';
+const SEL_SEND_BUTTON = '[data-testid="send-button"]';
+const SEL_STOP_BUTTON = '[data-testid="stop-button"], [aria-label="Stop generating"]';
 const SENTINEL = '}}}';
 const JSON_END_PATTERN = /}\s*]\s*}\s*$/;
+
+// Global Mutex to prevent concurrent browser access
+let call_mutex: Promise<void> = Promise.resolve();
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -48,19 +53,40 @@ async function ensureChatPage(browser: Browser): Promise<Page> {
     let page = await findChatPage(browser);
     if (!page) {
         page = await browser.newPage();
-        await sleep(500); // Give it a moment to initialize
+        await sleep(500);
     }
 
     try {
         const url = page.url();
-        if (!url || url === 'about:blank' || !url.includes(new URL(WEB_INTERFACE_URL).hostname)) {
+        const isChatGPT = url && url.includes('chatgpt.com');
+
+        if (!isChatGPT || url === 'about:blank') {
             console.log(`🌐 Navigating to ${WEB_INTERFACE_URL}...`);
-            // Use domcontentloaded for faster/more robust loading on slow connections
-            await page.goto(WEB_INTERFACE_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.goto(WEB_INTERFACE_URL, { waitUntil: 'load', timeout: 60000 });
             await sleep(2000);
         }
+
+        // Wait for page to be interactive (textarea exists)
+        try {
+            await page.waitForSelector(SEL_TEXTAREA, { timeout: 10000 });
+        } catch (e) {
+            console.log('⏳ Waiting for textarea to appear...');
+        }
+
+        // --- Cloudflare Patience ---
+        let attempts = 0;
+        while (attempts < 10) {
+            const content = await page.content();
+            if (content.includes('Just a moment...') || content.includes('cloudflare')) {
+                console.log('🛡️ Cloudflare Challenge detected, waiting 5s...');
+                await sleep(5000);
+                attempts++;
+            } else {
+                break;
+            }
+        }
     } catch (e: any) {
-        console.warn('⚠️ Navigation warning:', e.message);
+        console.warn('⚠️ Navigation stability warning:', e.message);
     }
 
     await page.bringToFront();
@@ -68,44 +94,24 @@ async function ensureChatPage(browser: Browser): Promise<Page> {
 }
 
 async function focusComposer(page: Page): Promise<void> {
-    await page.bringToFront();
-
-    // Try direct click on textarea
-    try {
-        await page.waitForSelector(SEL_TEXTAREA, { timeout: 5000 });
-        await page.click(SEL_TEXTAREA, { delay: 50 });
-        await sleep(200);
-        console.log('✅ Textarea fokussiert');
-        return;
-    } catch (e: any) {
-        console.warn('⚠️ Textarea nicht per Selector erreichbar');
-    }
-
-    // Fallback: Find and click textarea via evaluate
-    try {
-        const clicked = await page.evaluate(() => {
-            const textarea = document.querySelector<HTMLElement>('textarea[aria-label="Message ChatGPT"], textarea, [contenteditable="true"]');
-            if (textarea) {
-                textarea.focus();
-                textarea.click();
-                return true;
-            }
-            return false;
-        });
-
-        if (clicked) {
-            console.log('✅ Textarea via evaluate fokussiert');
-            await sleep(200);
-            return;
+    // We strive for background compatibility. Try focus via evaluate.
+    const focused = await page.evaluate((sel) => {
+        const textarea = document.querySelector<HTMLElement>(sel);
+        if (textarea) {
+            textarea.focus();
+            return true;
         }
-    } catch (e: any) {
-        console.warn('⚠️ Evaluate-Fallback fehlgeschlagen');
-    }
+        return false;
+    }, SEL_TEXTAREA);
 
-    // Last resort: Click in center of page
-    console.log('🖱️ Last-Resort-Klick in der Mitte...');
-    await page.mouse.click(500, 500);
-    await sleep(200);
+    if (focused) {
+        console.log('✅ Textarea fokussiert (background-safe)');
+    } else {
+        console.warn('⚠️ Textarea via evaluate nicht fokussierbar');
+        // Minimal fallback bring-to-front if absolutely necessary
+        await page.bringToFront();
+        await sleep(200);
+    }
 }
 
 async function setTextareaValueAndSend(page: Page, text: string): Promise<void> {
@@ -160,30 +166,57 @@ async function setTextareaValueAndSend(page: Page, text: string): Promise<void> 
 
     await sleep(1000); // Wait for UI to stabilize
 
-    console.log('📤 Sending message...');
-    await page.keyboard.press('Enter');
-    await sleep(1000);
+    console.log('📤 Sending message (DOM-based)...');
+    const sent = await page.evaluate((sel) => {
+        const btn = document.querySelector<HTMLButtonElement>(sel);
+        if (btn) {
+            btn.click();
+            return true;
+        }
+        return false;
+    }, SEL_SEND_BUTTON);
+
+    if (!sent) {
+        console.log('⌨️ Send-Button not found via data-testid, falling back to Enter');
+        await page.keyboard.press('Enter');
+    }
+    await sleep(2000);
 }
 
 async function getLatestAssistantText(page: Page): Promise<string> {
     const text = await page.evaluate(() => {
-        const assistantNodes = Array.from(
-            document.querySelectorAll<HTMLElement>('[data-message-author-role="assistant"]')
-        );
+        // 1. Try modern data-testid first
+        const turns = Array.from(document.querySelectorAll('[data-testid^="conversation-turn-"]'));
+        if (turns.length > 0) {
+            const lastTurn = turns[turns.length - 1];
+            // Assistant content is usually in a specific nested div
+            const content = lastTurn.querySelector('.markdown, .prose, [data-message-author-role="assistant"]');
+            if (content) return (content as HTMLElement).innerText || '';
+            return (lastTurn as HTMLElement).innerText || '';
+        }
+
+        // 2. Try standard author role
+        const assistantNodes = Array.from(document.querySelectorAll<HTMLElement>('[data-message-author-role="assistant"]'));
         if (assistantNodes.length) {
             const last = assistantNodes[assistantNodes.length - 1];
             return last.innerText || last.textContent || '';
         }
 
-        const markdowns = Array.from(
-            document.querySelectorAll<HTMLElement>('.markdown, article')
-        );
-        if (markdowns.length) {
-            const last = markdowns[markdowns.length - 1];
+        // 3. Try generic prose/markdown (matches Canvas & standard)
+        const proseNodes = Array.from(document.querySelectorAll<HTMLElement>('.prose, .markdown, article'));
+        if (proseNodes.length) {
+            const last = proseNodes[proseNodes.length - 1];
             return last.innerText || last.textContent || '';
         }
 
-        return document.body?.innerText || '';
+        // 4. Last resort: Get the last message group
+        const allMessages = Array.from(document.querySelectorAll('.group, .w-full, [id^="message-"]'));
+        if (allMessages.length) {
+            const last = allMessages[allMessages.length - 1] as HTMLElement;
+            return last.innerText || '';
+        }
+
+        return '';
     });
 
     return (text || '').trim();
@@ -199,18 +232,26 @@ function answerLooksComplete(raw: string): boolean {
     return false;
 }
 
-async function hasStopButton(page: Page): Promise<boolean> {
-    const found = await page.evaluate(() => {
-        const candidates: HTMLElement[] = Array.from(
-            document.querySelectorAll('button')
-        ) as HTMLElement[];
-        const stop = candidates.find((btn) => {
-            const txt = (btn.innerText || '').toLowerCase();
-            return txt.includes('stop generating') || txt.includes('stopp') || txt.includes('stop');
+async function isGenerating(page: Page): Promise<boolean> {
+    return await page.evaluate((sel) => {
+        // 1. Check for explicit stop button
+        if (document.querySelector(sel)) return true;
+
+        // 2. Check for "Stop" text in any button
+        const btns = Array.from(document.querySelectorAll('button'));
+        const hasStop = btns.some(b => {
+            const t = b.innerText.toLowerCase();
+            return t.includes('stop') || t.includes('stopp') || t.includes('abbrechen');
         });
-        return !!stop;
-    });
-    return !!found;
+        if (hasStop) return true;
+
+        // 3. Look for the "Send" button being in a disabled or loading state
+        // (ChatGPT often hides the send button or replaces it with the stop button)
+        const sendBtn = document.querySelector('[data-testid="send-button"]');
+        if (!sendBtn || (sendBtn as HTMLButtonElement).disabled) return true;
+
+        return false;
+    }, SEL_STOP_BUTTON);
 }
 
 async function waitForStableAnswer(page: Page): Promise<string> {
@@ -223,9 +264,9 @@ async function waitForStableAnswer(page: Page): Promise<string> {
     const started = Date.now();
 
     while (Date.now() - started < maxTimeMs) {
-        const [text, stopVisible] = await Promise.all([
+        const [text, busy] = await Promise.all([
             getLatestAssistantText(page),
-            hasStopButton(page),
+            isGenerating(page),
         ]);
 
         if (text && text !== lastText) {
@@ -242,8 +283,10 @@ async function waitForStableAnswer(page: Page): Promise<string> {
             break;
         }
 
-        if (!stopVisible && stableCount >= maxStable) {
-            console.log('✅ Antwort stabil, kein Stop-Button');
+        // If we have some significant text and it hasn't changed, and we aren't "busy",
+        // we can assume it's done. 
+        if (text.length > 20 && !busy && stableCount >= maxStable) {
+            console.log('✅ Antwort stabil, nicht beschäftigt - Breche ab');
             break;
         }
 
@@ -260,6 +303,14 @@ async function sendQuestionAndGetAnswer(
     const page = await ensureChatPage(browser);
 
     console.log('🌐 Verbunden mit:', await page.title());
+
+    // --- Safety Check: Wait if ChatGPT is still busy from a previous run ---
+    let busyAttempts = 0;
+    while (await isGenerating(page) && busyAttempts < 30) {
+        if (busyAttempts === 0) console.log('⏳ ChatGPT is busy, waiting...');
+        await sleep(2000);
+        busyAttempts++;
+    }
 
     await focusComposer(page);
     await setTextareaValueAndSend(page, prompt);
@@ -279,7 +330,14 @@ export class ChatGPTBackend implements LLMBackend {
     name = 'chatgpt';
 
     async call(prompt: string): Promise<BackendCallResult> {
-        const { answer, url } = await sendQuestionAndGetAnswer(prompt);
-        return { answer, url };
+        // Global Mutex to prevent overlapping prompts on the same tab
+        const result = call_mutex.then(async () => {
+            return await sendQuestionAndGetAnswer(prompt);
+        });
+
+        // Update the mutex to wait for this call to finish
+        call_mutex = result.then(() => { }).catch(() => { });
+
+        return await result;
     }
 }

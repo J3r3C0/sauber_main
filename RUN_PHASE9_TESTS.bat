@@ -19,26 +19,26 @@ REM Step 2: Start system in background
 echo [STEP 2/4] Starting Sheratan system...
 cd /d "%~dp0"
 
-REM Start Core API
-start /MIN "Core" cmd /c "python -m uvicorn core.main:app --host 0.0.0.0 --port 8001 2>nul"
-timeout /t 3 /nobreak >nul
-
-REM Start Worker
-start /MIN "Worker" cmd /c "python worker\worker_loop.py 2>nul"
-timeout /t 2 /nobreak >nul
-
-REM Start Chrome with Remote Debugging (for WebRelay)
+REM 1. Start Chrome with Remote Debugging (for WebRelay)
 echo   Starting Chrome with Remote Debugging...
 start /MIN "Chrome" cmd /c "start_chrome.bat"
+timeout /t 10 /nobreak >nul
+
+REM 2. Start WebRelay (for LLM calls)
+start /MIN "WebRelay" cmd /c "cd external\webrelay && npm start > webrelay.log 2>&1"
+timeout /t 10 /nobreak >nul
+
+REM 3. Start Core API
+start /MIN "Core" cmd /c "python -u -m uvicorn core.main:app --host 0.0.0.0 --port 8001 2>nul"
 timeout /t 5 /nobreak >nul
 
-REM Start WebRelay (for LLM calls)
-start /MIN "WebRelay" cmd /c "cd external\webrelay && npm start 2>nul"
-timeout /t 8 /nobreak >nul
+REM 4. Start Worker
+start /MIN "Worker" cmd /c "python -u worker\worker_loop.py > worker.log 2>&1"
+timeout /t 5 /nobreak >nul
 
-REM Start Dashboard
-start /MIN "Dashboard" cmd /c "cd dashboard && npm run dev 2>nul"
-timeout /t 3 /nobreak >nul
+REM 5. Start Dashboard
+start /MIN "Dashboard" cmd /c "cd external\dashboard && npm run dev 2>nul"
+timeout /t 5 /nobreak >nul
 
 echo   Services started. Waiting for initialization...
 timeout /t 10 /nobreak >nul

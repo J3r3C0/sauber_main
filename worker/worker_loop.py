@@ -8,15 +8,31 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Force UTF-8 for Windows shell logging
+# Force UTF-8 for Windows shell logging
+_original_print = print
+def safe_print(*args, **kwargs):
+    try:
+        _original_print(*args, **kwargs)
+    except UnicodeEncodeError:
+        # Fallback to ASCII with replacement for problematic chars
+        new_args = []
+        for arg in args:
+            if isinstance(arg, str):
+                new_args.append(arg.encode('ascii', errors='replace').decode('ascii'))
+            else:
+                new_args.append(arg)
+        _original_print(*new_args, **kwargs)
+
+# Override print with safe_print
+print = safe_print
+
 if sys.stdout.encoding.lower() != 'utf-8':
     try:
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
     except (AttributeError, Exception):
-        # Fallback for older Python versions or environments where reconfigure is not available
-        import codecs
-        sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
-        sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+        pass
 
 # Load environment variables from .env
 load_dotenv()
@@ -118,7 +134,16 @@ def truncate_result(content: str, threshold: int = 1000, full_content: bool = Fa
 
 
 def list_files_from_params(params: dict) -> dict:
-    root = params.get("root") or params.get("project_root") or "."
+    # Support multiple parameter names for the root path
+    root = params.get("root") or params.get("root_path") or params.get("path") or params.get("project_root") or "."
+    
+    # Path Sanitization: Strip common LLM sham-paths
+    if isinstance(root, str):
+        for sham in ["/workspace/project/", "/workspace/", "/app/"]:
+            if root.startswith(sham):
+                root = root[len(sham):]
+                break
+
     patterns = params.get("patterns") or ["*"]
     recursive = params.get("recursive", False)
 
@@ -198,6 +223,18 @@ def list_files_from_params(params: dict) -> dict:
 
 
 def resolve_file(root: str | None, rel_path: str | None, path: str | None) -> Path | None:
+    # Path Sanitization for root and path
+    if isinstance(root, str):
+        for sham in ["/workspace/project/", "/workspace/", "/app/"]:
+            if root.startswith(sham):
+                root = root[len(sham):]
+                break
+    if isinstance(path, str):
+        for sham in ["/workspace/project/", "/workspace/", "/app/"]:
+            if path.startswith(sham):
+                path = path[len(sham):]
+                break
+
     if root:
         root_path = Path(root)
         if not root_path.is_absolute():
@@ -252,6 +289,46 @@ def read_file_from_params(params: dict) -> dict:
         "action": "read_file_result",
         "path": str(file_path),
         **truncate_result(content, full_content=params.get("full_content", False))
+    }
+
+
+def read_file_batch_from_params(params: dict) -> dict:
+    """Read multiple files in a single job.
+    
+    Params:
+        paths: List of file paths to read
+        root: Optional root directory
+        limit: Optional max files (default 10)
+    """
+    paths = params.get("paths") or params.get("files") or []
+    # If paths is a string (e.g. from a malformed LLM response), split it
+    if isinstance(paths, str):
+        paths = [p.strip() for p in paths.split(",") if p.strip()]
+        
+    limit = params.get("limit", 10)
+    root = params.get("root")
+    
+    results = {}
+    any_truncated = False
+    
+    for p_str in paths[:limit]:
+        # Minimal individual read
+        res = read_file_from_params({"root": root, "path": p_str, "full_content": params.get("full_content")})
+        if res.get("ok"):
+            results[p_str] = {
+                "content": res.get("content"),
+                "truncated": res.get("_metadata", {}).get("is_truncated", False)
+            }
+            if results[p_str]["truncated"]:
+                any_truncated = True
+    
+    return {
+        "ok": True,
+        "action": "read_file_batch_result",
+        "files": results,
+        "truncated": any_truncated,
+        "count": len(results),
+        "limits": {"max_files": limit}
     }
 
 
@@ -556,8 +633,10 @@ def call_llm_generic(unified_job: dict) -> dict:
         if is_webrelay_submit:
             # V2.1 Weg: Wir schicken den ganzen Job. 
             # Der WebRelay nutzt seinen JobRouter (Iteration 1: full rules, Iteration 2+: minimal).
-            print(f"[worker] Delegating job {unified_job.get('job_id')} to WebRelay Submit...")
+            print(f"[worker] Sending job to WebRelay at {base_url}...")
+            print(f"[worker] Payload keys: {list(unified_job.keys())}")
             resp = requests.post(base_url, json=unified_job, timeout=300)
+            print(f"[worker] WebRelay responded with status {resp.status_code}")
         else:
             # Legacy/External Weg: Wir müssen selbst ein Prompt bauen (nicht empfohlen für v2.1)
             print("[worker] Using legacy prompting for external LLM (OpenAI style)...")
@@ -639,10 +718,12 @@ def handle_job(unified_job: dict) -> dict:
 
     # Standard handlers
     result = {"ok": True}
-    if task_kind == "list_files":
+    if task_kind == "list_files" or task_kind == "walk_tree":
         result = list_files_from_params(merged_params)
     elif task_kind == "read_file":
         result = read_file_from_params(merged_params)
+    elif task_kind == "read_file_batch":
+        result = read_file_batch_from_params(merged_params)
     elif task_kind == "write_file":
         result = write_file_from_params(merged_params)
     elif task_kind == "rewrite_file":
@@ -694,6 +775,8 @@ def main_loop():
                 WorkerCapability(kind="pdf_to_json", cost=20),
                 WorkerCapability(kind="agent_plan", cost=100),
                 WorkerCapability(kind="llm_call", cost=100),
+                WorkerCapability(kind="walk_tree", cost=20),
+                WorkerCapability(kind="read_file_batch", cost=50),
             ]
             
             registry.register(WorkerInfo(

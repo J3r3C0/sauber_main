@@ -26,20 +26,36 @@ def update_context_from_job_result(
     if not isinstance(result, dict):
         return None
 
-    # Handle walk_tree results: populate the file_list artifact
-    if job_kind == "walk_tree" and result.get("ok"):
+    # Handle walk_tree or list_files results: populate the file_list artifact
+    if job_kind in ["walk_tree", "list_files"] and result.get("ok"):
         # The worker might return 'paths' or 'files'
         paths = result.get("paths") or result.get("files") or []
-        meta = {"source_job_id": job_id}
+        meta = {"source_job_id": job_id, "kind": job_kind}
         set_chain_artifact_fn(conn, chain_id, "file_list", paths, meta)
         return "file_list"
+
+    # Handle read_file (singular) results
+    if job_kind == "read_file" and result.get("ok"):
+        content = result.get("content", "")
+        path = result.get("path") or result.get("rel_path")
+        if path:
+            # Store in a per-file artifact map or just update file_blobs
+            # Let's keep a 'file_blobs' map for all content
+            ctx = storage.get_chain_context(conn, chain_id)
+            blobs = ctx.get("artifacts", {}).get("file_blobs", {}).get("value", {})
+            blobs[path] = content
+            
+            meta = {"source_job_id": job_id, "updated_file": path}
+            set_chain_artifact_fn(conn, chain_id, "file_blobs", blobs, meta)
+            return "file_blobs"
 
     # Handle read_file_batch results: populate the file_blobs artifact
     if job_kind == "read_file_batch" and result.get("ok"):
         files = result.get("files") or {}
         meta = {
             "source_job_id": job_id, 
-            "total_bytes": result.get("total_bytes")
+            "total_bytes": result.get("total_bytes"),
+            "kind": "read_file_batch"
         }
         set_chain_artifact_fn(conn, chain_id, "file_blobs", files, meta)
         return "file_blobs"

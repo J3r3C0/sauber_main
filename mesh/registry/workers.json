@@ -40,13 +40,13 @@
       }
     ],
     "status": "online",
-    "last_seen": 1768185715.3076978,
+    "last_seen": 1768186513.3845563,
     "endpoint": null,
     "stats": {
-      "latency_ms_ema": 98090.72393997331,
-      "success_ema": 0.8317536627916802,
-      "n": 13,
-      "last_seen_ts": 1768185715.3076978,
+      "latency_ms_ema": 79621.84607590764,
+      "success_ema": 0.7643223441866753,
+      "n": 15,
+      "last_seen_ts": 1768186513.3845563,
       "consecutive_failures": 0,
       "is_offline": false,
       "cooldown_until": 0.0,

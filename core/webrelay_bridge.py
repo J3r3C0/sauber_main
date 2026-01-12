@@ -147,6 +147,16 @@ class WebRelayBridge:
         storage.update_job(job)
         # ----------------------------
 
+        # Phase 10.3: Include artifacts from chain_context for full visibility
+        artifacts = {}
+        chain_id = task.params.get("chain_id")
+        if chain_id:
+            from core.database import get_db
+            with get_db() as conn:
+                ctx = storage.get_chain_context(conn, chain_id)
+                if ctx:
+                    artifacts = ctx.get("artifacts") or {}
+
         unified = {
             "job_id": job.id,
             "kind": kind,
@@ -159,6 +169,7 @@ class WebRelayBridge:
                 "mission": mission.to_dict(),
                 "task": task.to_dict(),
                 "params": job.payload,
+                "artifacts": artifacts, # Pass artifacts to WebRelay
                 "last_result": job.payload.get("last_result") # Preserve last_result if present
             },
         }

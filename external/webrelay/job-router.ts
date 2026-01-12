@@ -84,13 +84,30 @@ export class JobRouter {
     if (payload && kind === 'agent_plan' && payload.task?.params?.user_prompt) {
       const userPrompt = payload.task.params.user_prompt;
       const projectRoot = payload.task.params.project_root || '/workspace/project';
+      const artifacts = payload.artifacts || {};
+
+      // Build artifact summary for the prompt
+      let artifactSummary = '';
+      if (Object.keys(artifacts).length > 0) {
+        artifactSummary = '\nPREVIOUS JOB ARTIFACTS (CONTEXT):\n';
+        for (const [key, details] of Object.entries(artifacts)) {
+          const value = (details as any).value;
+          if (Array.isArray(value)) {
+            artifactSummary += `- ${key}: [${value.slice(0, 5).join(', ')}${value.length > 5 ? '... and ' + (value.length - 5) + ' more' : ''}]\n`;
+          } else if (typeof value === 'object' && value !== null) {
+            artifactSummary += `- ${key}: { ${Object.keys(value).slice(0, 5).join(', ')}${Object.keys(value).length > 5 ? '... ' : ''} }\n`;
+          } else {
+            artifactSummary += `- ${key}: ${String(value).slice(0, 200)}${String(value).length > 200 ? '...' : ''}\n`;
+          }
+        }
+      }
 
       return `${CORE2_LCP_SYSTEM_PROMPT}
 
 You are acting as a planner for the project root: ${projectRoot}
 
 User Request: ${userPrompt}
-
+${artifactSummary}
 Construct a plan using 'create_followup_jobs' action.
 Return ONLY the JSON.`;
     }

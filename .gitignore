@@ -7,8 +7,8 @@
 # -----------------------------------------------------------------------------
 
 # State machine persistence
-runtime/
-logs/
+/runtime/
+/logs/
 *.jsonl
 *.log
 
@@ -21,12 +21,12 @@ v-mesh-antigravity/history/
 **/*_dashboard_view_*.png
 **/*_details_*.png
 
-# Data directories
-data/
-webrelay_out/
-webrelay_in/
-chains/
-missions/
+# Data directories (root level only, not dashboard source!)
+/data/
+/webrelay_out/
+/webrelay_in/
+/chains/
+/missions/
 
 # Chrome profile data
 chrome_profile/

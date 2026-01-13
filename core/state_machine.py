@@ -24,12 +24,21 @@ Drop-in usage:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 import uuid
 from dataclasses import dataclass, asdict
 from enum import Enum
 from typing import Any, Dict, Optional, Tuple
+
+try:
+    import portalocker
+    HAS_PORTALOCKER = True
+except ImportError:
+    HAS_PORTALOCKER = False
+
+logger = logging.getLogger(__name__)
 
 
 # -----------------------------
@@ -296,6 +305,21 @@ class SystemStateMachine:
             return None
 
     def _persist_snapshot(self, snap: StateSnapshot) -> None:
+        """Persist snapshot with file locking for concurrent write safety"""
+        if HAS_PORTALOCKER:
+            lock_path = self.load_path + ".lock"
+            try:
+                with portalocker.Lock(lock_path, timeout=5):
+                    self._persist_snapshot_unsafe(snap)
+            except portalocker.LockException:
+                logger.warning(f"Lock timeout on {self.load_path}, writing anyway (best-effort)")
+                self._persist_snapshot_unsafe(snap)
+        else:
+            # Fallback: no locking if portalocker not available
+            self._persist_snapshot_unsafe(snap)
+    
+    def _persist_snapshot_unsafe(self, snap: StateSnapshot) -> None:
+        """Persist snapshot without locking (internal use only)"""
         os.makedirs(os.path.dirname(self.load_path) or ".", exist_ok=True)
         tmp_path = self.load_path + ".tmp"
         payload = snap.to_dict()
@@ -304,6 +328,21 @@ class SystemStateMachine:
         os.replace(tmp_path, self.load_path)
 
     def _append_event(self, ev: TransitionEvent) -> None:
+        """Append event to log with file locking for concurrent write safety"""
+        if HAS_PORTALOCKER:
+            lock_path = self.log_path + ".lock"
+            try:
+                with portalocker.Lock(lock_path, timeout=5):
+                    self._append_event_unsafe(ev)
+            except portalocker.LockException:
+                logger.warning(f"Lock timeout on {self.log_path}, appending anyway (best-effort)")
+                self._append_event_unsafe(ev)
+        else:
+            # Fallback: no locking if portalocker not available
+            self._append_event_unsafe(ev)
+    
+    def _append_event_unsafe(self, ev: TransitionEvent) -> None:
+        """Append event without locking (internal use only)"""
         os.makedirs(os.path.dirname(self.log_path) or ".", exist_ok=True)
         with open(self.log_path, "a", encoding="utf-8") as f:
             f.write(ev.to_json() + "\n")

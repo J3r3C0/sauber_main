@@ -43,6 +43,24 @@ import fnmatch
 import sys
 from pathlib import Path
 
+# Phase 1: Resilient HTTP + Event-Driven Worker
+try:
+    import httpx
+    from tenacity import retry, stop_after_attempt, wait_exponential, RetryError
+    HAS_HTTPX = True
+except ImportError:
+    HAS_HTTPX = False
+    httpx = None
+
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    HAS_WATCHDOG = True
+except ImportError:
+    HAS_WATCHDOG = False
+    Observer = None
+    FileSystemEventHandler = None
+
 # Add parent directory to path since we are in worker/
 _this_dir = Path(__file__).parent
 _project_root = _this_dir.parent
@@ -760,6 +778,23 @@ def main_loop():
     print(f"--- Sheratan Worker 2.0 Starting (ID: {WORKER_ID}) ---")
     print(f"[worker] Monitoring {RELAY_OUT_DIR}")
     
+    # Import Phase 1 helpers
+    try:
+        from worker.phase1_helpers import (
+            notify_core_safe,
+            JobEventHandler,
+            claim_job_file,
+            release_job_claim,
+            check_for_unclaimed_jobs,
+            HAS_WATCHDOG
+        )
+        print("[worker] ✓ Phase 1 improvements loaded (resilient HTTP + event-driven)")
+    except ImportError as e:
+        print(f"[worker] ⚠ Phase 1 helpers not available, using legacy mode: {e}")
+        notify_core_safe = None
+        JobEventHandler = None
+        HAS_WATCHDOG = False
+    
     # --- AUTO-REGISTRATION ---
     print(f"[worker] Debug: WorkerRegistry is {WorkerRegistry}")
     if WorkerRegistry:
@@ -793,19 +828,26 @@ def main_loop():
             traceback.print_exc()
     # -------------------------
 
-
     RELAY_OUT_DIR.mkdir(parents=True, exist_ok=True)
     RELAY_IN_DIR.mkdir(parents=True, exist_ok=True)
-
-    while True:
-        for path in list(RELAY_OUT_DIR.glob("*.job.json")):
+    FAILED_REPORTS_DIR = BASE_DIR / "data" / "failed_reports"
+    
+    core_url = os.getenv("SHERATAN_CORE_URL", "http://127.0.0.1:8001")
+    
+    def process_job_file(path: Path):
+        """Process a single job file with claiming and resilient notification"""
+        # Claim job atomically
+        if notify_core_safe and not claim_job_file(path):
+            # Already claimed
+            return
+        
+        try:
             try:
                 raw = path.read_text(encoding="utf-8")
                 unified_job = json.loads(raw)
             except Exception as e:
                 print("[worker] Failed to read job file", path, e)
-                # If we cannot read it, we cannot check worker_id, so we skip and don't delete
-                continue
+                return
 
             job_id = unified_job.get("job_id") or path.stem.split(".")[0]
             target_worker = unified_job.get("worker_id")
@@ -813,7 +855,7 @@ def main_loop():
             # --- WORKER ARBITRAGE FILTERING ---
             if target_worker and target_worker != WORKER_ID:
                 # This job is for another worker, skip it!
-                continue
+                return
             # -----------------------------------
 
             print(f"[worker] Processing job file {path} (job_id={job_id})")
@@ -834,25 +876,72 @@ def main_loop():
                 result_file.write_text(json.dumps(result), encoding="utf-8")
                 print("[worker] Wrote result file", result_file)
                 
-                # Notify Core to sync result and process follow-ups
-                try:
-                    core_url = os.getenv("SHERATAN_CORE_URL", "http://127.0.0.1:8001")
-                    sync_url = f"{core_url}/api/jobs/{job_id}/sync"
-                    sync_resp = requests.post(sync_url, timeout=10)
-                    if sync_resp.ok:
-                        print(f"[worker] ✓ Notified Core to sync job {job_id[:12]}...")
-                    else:
-                        print(f"[worker] ⚠ Core sync returned {sync_resp.status_code}")
-                except Exception as e:
-                    print(f"[worker] ⚠ Failed to notify Core: {e}")
+                # Notify Core with resilient HTTP + retry
+                if notify_core_safe:
+                    notify_core_safe(core_url, job_id, FAILED_REPORTS_DIR)
+                else:
+                    # Fallback: legacy notification
+                    try:
+                        sync_url = f"{core_url}/api/jobs/{job_id}/sync"
+                        sync_resp = requests.post(sync_url, timeout=10)
+                        if sync_resp.ok:
+                            print(f"[worker] ✓ Notified Core to sync job {job_id[:12]}...")
+                        else:
+                            print(f"[worker] ⚠ Core sync returned {sync_resp.status_code}")
+                    except Exception as e:
+                        print(f"[worker] ⚠ Failed to notify Core: {e}")
                 
             except Exception as e:
                 print("[worker] FAILED to write result file", result_file, e)
 
             print("[worker] Done job", job_id)
             path.unlink(missing_ok=True)
-
-        time.sleep(1.0)
+            
+        finally:
+            # Release claim
+            if notify_core_safe:
+                release_job_claim(path)
+    
+    # ========================================================================
+    # Phase 1: Event-Driven Worker with Watchdog
+    # ========================================================================
+    
+    if HAS_WATCHDOG and JobEventHandler:
+        print("[worker] 🚀 Starting event-driven mode (watchdog)")
+        
+        # Create event handler
+        handler = JobEventHandler(process_job_file, debounce_ms=200)
+        observer = Observer()
+        observer.schedule(handler, str(RELAY_OUT_DIR), recursive=False)
+        observer.start()
+        
+        print(f"[worker] ✓ Watching {RELAY_OUT_DIR} for job files")
+        
+        try:
+            # Hybrid loop: Event-driven + fallback polling
+            while True:
+                # Check for stable files from events
+                handler.check_stable_files()
+                
+                # Fallback: Check for missed files every 5s
+                time.sleep(5.0)
+                check_for_unclaimed_jobs(RELAY_OUT_DIR, process_job_file)
+        except KeyboardInterrupt:
+            print("[worker] Shutting down...")
+            observer.stop()
+            observer.join()
+    else:
+        # ====================================================================
+        # Legacy: Polling Mode (fallback if watchdog not available)
+        # ====================================================================
+        print("[worker] ⚠ Running in legacy polling mode (watchdog not available)")
+        print("[worker] Install watchdog for better performance: pip install watchdog")
+        
+        while True:
+            for path in list(RELAY_OUT_DIR.glob("*.job.json")):
+                process_job_file(path)
+            
+            time.sleep(1.0)  # Legacy 1s polling
 
 
 if __name__ == "__main__":

@@ -84,9 +84,9 @@ function Finalize-Report {
         [Parameter(Mandatory=$true)][System.Collections.Generic.List[object]]$Results
     )
 
-    $passed = @($Results | Where-Object { $_.status -eq "PASS" }).Count
-    $failed = @($Results | Where-Object { $_.status -eq "FAIL" }).Count
-    $skipped = @($Results | Where-Object { $_.status -eq "SKIP" }).Count
+    $passed = @($Results | Where-Object { $null -ne $_.status -and $_.status -eq "PASS" }).Count
+    $failed = @($Results | Where-Object { $null -ne $_.status -and $_.status -eq "FAIL" }).Count
+    $skipped = @($Results | Where-Object { $null -ne $_.status -and $_.status -eq "SKIP" }).Count
 
     $final = @{
         timestamp = (Get-Date).ToString("o")

@@ -1,83 +1,100 @@
 {
-    "schema_version": "priors_v1",
-    "dispatch_job": {
-        "ROUTE:local_worker": {
-            "visits": 12,
-            "mean_score": 2.1,
-            "last_scores": [
-                2.3,
-                2.0,
-                2.2,
-                1.9
-            ],
-            "risk_gate": true
-        },
-        "ROUTE:webrelay": {
-            "visits": 5,
-            "mean_score": 2.6,
-            "last_scores": [
-                2.8,
-                2.5
-            ],
-            "risk_gate": true
-        },
-        "ROUTE:api": {
-            "visits": 2,
-            "mean_score": 1.4,
-            "last_scores": [
-                1.2,
-                1.6
-            ],
-            "risk_gate": false
-        }
+  "schema_version": "priors_v1",
+  "dispatch_job": {
+    "ROUTE:local_worker": {
+      "visits": 12,
+      "mean_score": 2.1,
+      "last_scores": [
+        2.3,
+        2.0,
+        2.2,
+        1.9
+      ],
+      "risk_gate": true
     },
-    "route_llm_call": {
-        "ROUTE:local_model": {
-            "visits": 20,
-            "mean_score": 2.4,
-            "last_scores": [
-                2.5,
-                2.3,
-                2.4
-            ],
-            "risk_gate": true
-        },
-        "ROUTE:webrelay": {
-            "visits": 7,
-            "mean_score": 2.9,
-            "last_scores": [
-                3.0,
-                2.8
-            ],
-            "risk_gate": true
-        }
+    "ROUTE:webrelay": {
+      "visits": 5,
+      "mean_score": 2.6,
+      "last_scores": [
+        2.8,
+        2.5
+      ],
+      "risk_gate": true
     },
-    "recover_failure": {
-        "RETRY:same_worker": {
-            "visits": 10,
-            "mean_score": 1.1,
-            "last_scores": [
-                1.0,
-                1.2
-            ],
-            "risk_gate": true
-        },
-        "FALLBACK:webrelay": {
-            "visits": 6,
-            "mean_score": 2.7,
-            "last_scores": [
-                2.6,
-                2.8
-            ],
-            "risk_gate": true
-        },
-        "QUARANTINE:worker": {
-            "visits": 3,
-            "mean_score": 2.9,
-            "last_scores": [
-                3.0
-            ],
-            "risk_gate": true
-        }
+    "ROUTE:api": {
+      "visits": 2,
+      "mean_score": 1.4,
+      "last_scores": [
+        1.2,
+        1.6
+      ],
+      "risk_gate": false
+    },
+    "ROUTE": {
+      "visits": 10,
+      "mean_score": 3.5799,
+      "last_scores": [
+        1.3667,
+        4.3133,
+        4.26,
+        4.2067,
+        4.1533,
+        1.1,
+        4.1,
+        4.1,
+        4.1,
+        4.1
+      ],
+      "risk_gate": true
     }
+  },
+  "route_llm_call": {
+    "ROUTE:local_model": {
+      "visits": 20,
+      "mean_score": 2.4,
+      "last_scores": [
+        2.5,
+        2.3,
+        2.4
+      ],
+      "risk_gate": true
+    },
+    "ROUTE:webrelay": {
+      "visits": 7,
+      "mean_score": 2.9,
+      "last_scores": [
+        3.0,
+        2.8
+      ],
+      "risk_gate": true
+    }
+  },
+  "recover_failure": {
+    "RETRY:same_worker": {
+      "visits": 10,
+      "mean_score": 1.1,
+      "last_scores": [
+        1.0,
+        1.2
+      ],
+      "risk_gate": true
+    },
+    "FALLBACK:webrelay": {
+      "visits": 6,
+      "mean_score": 2.7,
+      "last_scores": [
+        2.6,
+        2.8
+      ],
+      "risk_gate": true
+    },
+    "QUARANTINE:worker": {
+      "visits": 3,
+      "mean_score": 2.9,
+      "last_scores": [
+        3.0
+      ],
+      "risk_gate": true
+    }
+  }
 }

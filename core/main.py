@@ -230,6 +230,11 @@ app.add_middleware(
 _this_dir = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=str(_this_dir), html=True), name="static")
 
+# --- WHY-API (Stage 5: Explainability) ---
+from core.why_api import router as why_router
+app.include_router(why_router, prefix="/api/why")
+# -----------------------------------------
+
 # --- MESH ARBITRAGE EXCEPTION HANDLING ---
 # Import PaymentRequiredError from the mesh package
 try:

@@ -1,171 +1,890 @@
-<!DOCTYPE html>
-<html lang="en">
+```html
+<!-- ui/decision_view.html  (Stage 6 Starter Skeleton - READ ONLY) -->
+<!doctype html>
+<html lang="de">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sheratan DecisionView [Minimal]</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Sheratan DecisionView — Stage 6</title>
     <style>
         :root {
-            --bg: #0f172a;
-            --text: #f1f5f9;
-            --accent: #38bdf8;
-            --card: #1e293b;
-            --border: #334155;
-            --success: #22c55e;
-            --fail: #ef4444;
-            --warn: #f59e0b;
+            --bg: #0b0f12;
+            --panel: #0f1720;
+            --panel2: #0d131b;
+            --text: #e6f7ff;
+            --muted: #9bb4c2;
+            --accent: #00c3d4;
+            --ok: #2ee59d;
+            --warn: #ffd166;
+            --bad: #ff5a5a;
+            --line: #1b2a35;
+            --chip: #12202c;
+            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", "Noto Sans", "Liberation Sans", sans-serif;
         }
+
+        * {
+            box-sizing: border-box
+        }
+
         body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
             background: var(--bg);
             color: var(--text);
-            margin: 0;
-            padding: 2rem;
-            line-height: 1.5;
+            font-family: var(--sans);
         }
-        h1 { color: var(--accent); margin-bottom: 2rem; font-weight: 800; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .upload-zone {
-            border: 2px dashed var(--border);
-            padding: 2rem;
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+            background: linear-gradient(180deg, rgba(0, 195, 212, 0.10), rgba(0, 0, 0, 0));
+        }
+
+        .title {
+            display: flex;
+            gap: 10px;
+            align-items: center
+        }
+
+        .badge {
+            font-size: 12px;
+            color: var(--accent);
+            border: 1px solid rgba(0, 195, 212, .4);
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(0, 195, 212, .08);
+        }
+
+        .sub {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .wrap {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            min-height: calc(100vh - 56px)
+        }
+
+        aside {
+            border-right: 1px solid var(--line);
+            background: var(--panel);
+            padding: 12px;
+            overflow: auto;
+        }
+
+        main {
+            background: var(--panel2);
+            overflow: auto;
+        }
+
+        .card {
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            margin: 10px 0 6px
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: #0b1218;
+            color: var(--text);
+            padding: 10px;
+            font-family: var(--sans);
+            outline: none;
+        }
+
+        textarea {
+            min-height: 70px;
+            font-family: var(--mono);
+            font-size: 12px
+        }
+
+        button {
+            cursor: pointer;
+            background: rgba(0, 195, 212, 0.12);
+            border: 1px solid rgba(0, 195, 212, 0.35);
+        }
+
+        button:hover {
+            background: rgba(0, 195, 212, 0.18)
+        }
+
+        .row {
+            display: flex;
+            gap: 10px
+        }
+
+        .row>* {
+            flex: 1
+        }
+
+        .hint {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.3
+        }
+
+        .drop {
+            border: 1px dashed rgba(0, 195, 212, 0.45);
+            border-radius: 12px;
+            padding: 16px;
             text-align: center;
-            border-radius: 0.75rem;
-            background: var(--card);
-            margin-bottom: 2rem;
-            cursor: pointer;
-            transition: border-color 0.2s;
+            background: rgba(0, 195, 212, 0.05);
         }
-        .upload-zone:hover { border-color: var(--accent); }
-        .trace-list { margin-top: 2rem; }
-        .node {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            cursor: pointer;
+
+        .drop.drag {
+            background: rgba(0, 195, 212, 0.10)
         }
-        .node:hover { border-color: var(--accent); }
-        .node-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-        .intent { font-weight: bold; font-size: 1.1rem; }
-        .score { font-family: monospace; padding: 0.2rem 0.6rem; border-radius: 4px; background: rgba(0,0,0,0.3); }
-        .score.good { color: var(--success); }
-        .score.bad { color: var(--fail); }
+
+        .kv {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 12px
+        }
+
+        .kv div:nth-child(odd) {
+            color: var(--muted)
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--line);
+            position: sticky;
+            top: 0;
+            background: rgba(13, 19, 27, 0.95);
+            backdrop-filter: blur(6px);
+            z-index: 5;
+        }
+
+        .toolbar .left {
+            display: flex;
+            gap: 10px;
+            align-items: center
+        }
+
+        .pill {
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: var(--chip);
+            border: 1px solid var(--line);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .list {
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px
+        }
+
+        .item {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 10px;
+            cursor: pointer;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+        }
+
+        .item:hover {
+            border-color: rgba(0, 195, 212, 0.35)
+        }
+
+        .item .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center
+        }
+
+        .chip {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: var(--chip);
+            color: var(--muted);
+            font-family: var(--mono);
+        }
+
+        .status {
+            font-weight: 600;
+            font-size: 12px;
+            font-family: var(--mono)
+        }
+
+        .status.ok {
+            color: var(--ok)
+        }
+
+        .status.warn {
+            color: var(--warn)
+        }
+
+        .status.bad {
+            color: var(--bad)
+        }
+
+        .rightCol {
+            text-align: right;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: flex-end;
+        }
+
+        .score {
+            font-size: 14px;
+            color: var(--text)
+        }
+
         .details {
-            display: none;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border);
-            font-size: 0.9rem;
+            border-top: 1px solid var(--line);
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.15);
         }
-        .details.active { display: block; }
-        .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
-        .meta-item { background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 0.5rem; }
-        .meta-label { color: var(--accent); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem; }
-        pre { background: #000; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.8rem; }
-        .tag { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 10px; background: var(--accent); color: var(--bg); margin-left: 0.5rem; }
+
+        pre {
+            margin: 0;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: #071016;
+            overflow: auto;
+            font-family: var(--mono);
+            font-size: 12px;
+            line-height: 1.35;
+            color: var(--text);
+        }
+
+        .error {
+            color: var(--bad);
+            font-family: var(--mono);
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+
+        .muted {
+            color: var(--muted)
+        }
+
+        .small {
+            font-size: 12px
+        }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Sheratan DecisionView <small style="font-size: 0.5em; opacity: 0.5; vertical-align: middle;">v1.0</small></h1>
-        
-        <div class="upload-zone" id="dropZone">
-            <p>Select or Drop <strong>decision_trace.jsonl</strong> here</p>
-            <input type="file" id="fileInput" style="display: none;" accept=".jsonl">
-        </div>
 
-        <div id="stats" style="margin-bottom: 1rem; font-size: 0.9rem; opacity: 0.8;"></div>
-        <div class="trace-list" id="traceList"></div>
+<body>
+    <header>
+        <div class="title">
+            <div
+                style="width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 16px rgba(0,195,212,0.35)">
+            </div>
+            <div>
+                <div style="font-weight:700">Sheratan DecisionView</div>
+                <div class="sub">Stage 6 — Read-only Analyzer (JSONL / WHY-API)</div>
+            </div>
+            <span class="badge">READ ONLY</span>
+        </div>
+        <div class="sub">No repair · No scoring · No side effects</div>
+    </header>
+
+    <div class="wrap">
+        <aside>
+            <div class="card">
+                <div style="font-weight:700;margin-bottom:6px">1) Datenquelle</div>
+                <div class="row">
+                    <button id="btnModeJsonl" type="button">JSONL Drop</button>
+                    <button id="btnModeApi" type="button">WHY-API</button>
+                </div>
+                <div class="hint" style="margin-top:8px">
+                    JSONL: <span class="muted">logs/decision_trace.jsonl</span><br />
+                    WHY-API: <span class="muted">/api/why/latest, /trace/{id}, /job/{id}, /stats</span>
+                </div>
+            </div>
+
+            <div class="card" id="panelJsonl">
+                <div style="font-weight:700;margin-bottom:6px">2) JSONL import</div>
+                <div id="dropZone" class="drop">
+                    <div style="font-weight:700">Drag & Drop</div>
+                    <div class="hint">decision_trace.jsonl hier ablegen<br />oder Datei auswählen</div>
+                    <input id="fileInput" type="file" accept=".jsonl,.txt,application/json" style="margin-top:10px" />
+                </div>
+                <div style="margin-top:10px" class="hint">
+                    Parsing ist defensiv: invalide Zeilen werden übersprungen (kein Repair).
+                </div>
+            </div>
+
+            <div class="card" id="panelApi" style="display:none">
+                <div style="font-weight:700;margin-bottom:6px">2) WHY-API Verbindung</div>
+                <label>Base URL</label>
+                <input id="apiBaseUrl" placeholder="http://localhost:8001" />
+                <div class="row">
+                    <button id="btnApiLoadLatest" type="button">Load /latest</button>
+                    <button id="btnApiLoadStats" type="button">Load /stats</button>
+                </div>
+                <label>Intent Filter (optional)</label>
+                <input id="apiIntent" placeholder="dispatch_job" />
+                <div class="hint" style="margin-top:8px">
+                    Hinweis: UI schreibt nichts zurück. Responses werden nur im RAM gehalten.
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="font-weight:700;margin-bottom:6px">3) Filter</div>
+
+                <label>Intent</label>
+                <select id="fIntent">
+                    <option value="">(alle)</option>
+                </select>
+
+                <label>Status</label>
+                <select id="fStatus">
+                    <option value="">(alle)</option>
+                    <option value="success">success</option>
+                    <option value="failed">failed</option>
+                    <option value="recovered">recovered</option>
+                    <option value="partial">partial</option>
+                    <option value="skipped">skipped</option>
+                </select>
+
+                <label>Action Type</label>
+                <select id="fAction">
+                    <option value="">(alle)</option>
+                </select>
+
+                <div class="row">
+                    <div>
+                        <label>Score min</label>
+                        <input id="fScoreMin" type="number" step="0.01" placeholder="-inf" />
+                    </div>
+                    <div>
+                        <label>Score max</label>
+                        <input id="fScoreMax" type="number" step="0.01" placeholder="+inf" />
+                    </div>
+                </div>
+
+                <label>job_id contains</label>
+                <input id="fJob" placeholder="job_" />
+
+                <label>trace_id contains</label>
+                <input id="fTrace" placeholder="8a2f..." />
+
+                <div class="row" style="margin-top:10px">
+                    <button id="btnApplyFilters" type="button">Apply</button>
+                    <button id="btnResetFilters" type="button">Reset</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="font-weight:700;margin-bottom:6px">4) Debug</div>
+                <div class="kv">
+                    <div>events</div>
+                    <div id="dbgEvents">0</div>
+                    <div>invalid</div>
+                    <div id="dbgInvalid">0</div>
+                    <div>source</div>
+                    <div id="dbgSource">—</div>
+                </div>
+                <div id="dbgError" class="error" style="margin-top:10px; display:none"></div>
+            </div>
+        </aside>
+
+        <main>
+            <div class="toolbar">
+                <div class="left">
+                    <span class="pill">Sort: <select id="sortMode" style="width:auto;padding:6px 8px">
+                            <option value="time_desc">timestamp ↓</option>
+                            <option value="time_asc">timestamp ↑</option>
+                            <option value="score_desc">score ↓</option>
+                            <option value="score_asc">score ↑</option>
+                        </select></span>
+                    <span class="pill">View: <span class="muted">List → Details</span></span>
+                </div>
+                <div class="pill" id="metaLine">Ready</div>
+            </div>
+
+            <div class="list" id="list"></div>
+
+            <div class="details" id="details">
+                <div class="muted small">Select an event to see details.</div>
+            </div>
+        </main>
     </div>
 
     <script>
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const traceList = document.getElementById('traceList');
-        const stats = document.getElementById('stats');
+        (() => {
+            // ---------- State ----------
+            let mode = "jsonl";               // "jsonl" | "api"
+            let events = [];                  // parsed decision events
+            let invalidLines = 0;             // json parse failures
+            let filtered = [];                // events after filters
+            let selected = null;              // selected event object
 
-        dropZone.onclick = () => fileInput.click();
-        fileInput.onchange = e => handleFile(e.target.files[0]);
+            // ---------- Elements ----------
+            const $ = (id) => document.getElementById(id);
 
-        dropZone.onactivate = e => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; };
-        dropZone.ondragover = e => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; };
-        dropZone.ondragleave = () => { dropZone.style.borderColor = 'var(--border)'; };
-        dropZone.ondrop = e => {
-            e.preventDefault();
-            dropZone.style.borderColor = 'var(--border)';
-            handleFile(e.dataTransfer.files[0]);
-        };
+            const btnModeJsonl = $("btnModeJsonl");
+            const btnModeApi = $("btnModeApi");
+            const panelJsonl = $("panelJsonl");
+            const panelApi = $("panelApi");
 
-        function handleFile(file) {
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = e => {
-                const lines = e.target.result.split('\n').filter(l => l.trim());
-                const traces = lines.map(l => JSON.parse(l));
-                renderTraces(traces);
-            };
-            reader.readAsText(file);
-        }
+            const dropZone = $("dropZone");
+            const fileInput = $("fileInput");
 
-        function renderTraces(traces) {
-            traceList.innerHTML = '';
-            stats.innerText = `Loaded ${traces.length} decision nodes.`;
+            const apiBaseUrl = $("apiBaseUrl");
+            const apiIntent = $("apiIntent");
+            const btnApiLoadLatest = $("btnApiLoadLatest");
+            const btnApiLoadStats = $("btnApiLoadStats");
 
-            // Sort by timestamp desc
-            traces.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const fIntent = $("fIntent");
+            const fStatus = $("fStatus");
+            const fAction = $("fAction");
+            const fScoreMin = $("fScoreMin");
+            const fScoreMax = $("fScoreMax");
+            const fJob = $("fJob");
+            const fTrace = $("fTrace");
+            const btnApplyFilters = $("btnApplyFilters");
+            const btnResetFilters = $("btnResetFilters");
 
-            traces.forEach(t => {
-                const node = document.createElement('div');
-                node.className = 'node';
-                
-                const scoreClass = t.result.score > 2 ? 'good' : (t.result.score < 1 ? 'bad' : '');
-                const modeTag = t.action.mode === 'simulate' ? '<span class="tag">SIM</span>' : '<span class="tag">EXE</span>';
-                
-                node.innerHTML = `
-                    <div class="node-header">
-                        <div>
-                            <span class="intent">${t.intent}</span>
-                            ${modeTag}
-                            <span style="font-size: 0.8rem; opacity: 0.5; margin-left: 1rem;">${t.timestamp.split('T')[1].split('.')[0]}</span>
-                        </div>
-                        <div class="score ${scoreClass}">${t.result.score.toFixed(2)}</div>
-                    </div>
-                    <div>${t.action.type} &rarr; ${t.result.status}</div>
-                    
-                    <div class="details">
-                        <div class="meta-grid">
-                            <div class="meta-item">
-                                <span class="meta-label">Action ID / Type</span>
-                                ${t.action.action_id}<br><strong>${t.action.type}</strong>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">Metrics</span>
-                                Latency: ${t.result.metrics.latency_ms}ms<br>
-                                Cost: ${t.result.metrics.cost} | Risk: ${t.result.metrics.risk}
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">Correlation</span>
-                                Job: ${t.job_id || 'N/A'}<br>
-                                Trace: ${t.trace_id.slice(0,8)}...
-                            </div>
-                        </div>
+            const sortMode = $("sortMode");
 
-                        <div style="margin-top: 1rem;">
-                            <span class="meta-label">Full Result Payload</span>
-                            <pre>${JSON.stringify(t.result, null, 2)}</pre>
-                        </div>
-                    </div>
-                `;
+            const listEl = $("list");
+            const detailsEl = $("details");
+            const dbgEvents = $("dbgEvents");
+            const dbgInvalid = $("dbgInvalid");
+            const dbgSource = $("dbgSource");
+            const dbgError = $("dbgError");
+            const metaLine = $("metaLine");
 
-                node.onclick = () => {
-                    const details = node.querySelector('.details');
-                    details.classList.toggle('active');
+            // ---------- Helpers ----------
+            function setError(msg) {
+                dbgError.style.display = msg ? "block" : "none";
+                dbgError.textContent = msg || "";
+            }
+
+            function setMeta(msg) {
+                metaLine.textContent = msg;
+            }
+
+            function shortId(s, n = 8) {
+                if (!s) return "—";
+                s = String(s);
+                return s.length <= n ? s : (s.slice(0, n) + "…");
+            }
+
+            function getStatusClass(status) {
+                if (status === "success") return "ok";
+                if (status === "failed") return "bad";
+                if (status === "partial" || status === "recovered") return "warn";
+                return "warn";
+            }
+
+            function safeNum(x) {
+                const n = Number(x);
+                return Number.isFinite(n) ? n : null;
+            }
+
+            function normalizeEvent(e) {
+                // No repair. Just safe access. If mandatory fields are missing, UI can still display.
+                return e;
+            }
+
+            function pretty(obj) {
+                return JSON.stringify(obj, null, 2);
+            }
+
+            function updateDebug() {
+                dbgEvents.textContent = String(events.length);
+                dbgInvalid.textContent = String(invalidLines);
+                dbgSource.textContent = mode === "jsonl" ? "JSONL" : "WHY-API";
+            }
+
+            function rebuildFilterOptions() {
+                // Build intents/actions dropdowns from currently loaded events.
+                const intents = new Set();
+                const actions = new Set();
+                for (const e of events) {
+                    if (e.intent) intents.add(String(e.intent));
+                    const t = e.action && e.action.type;
+                    if (t) actions.add(String(t));
+                }
+
+                const currentIntent = fIntent.value;
+                const currentAction = fAction.value;
+
+                fIntent.innerHTML = `<option value="">(alle)</option>` + [...intents].sort().map(x => `<option value="${x}">${x}</option>`).join("");
+                fAction.innerHTML = `<option value="">(alle)</option>` + [...actions].sort().map(x => `<option value="${x}">${x}</option>`).join("");
+
+                if ([...intents].includes(currentIntent)) fIntent.value = currentIntent;
+                if ([...actions].includes(currentAction)) fAction.value = currentAction;
+            }
+
+            function applyFilters() {
+                const intent = fIntent.value.trim();
+                const status = fStatus.value.trim();
+                const actionType = fAction.value.trim();
+                const sMin = safeNum(fScoreMin.value);
+                const sMax = safeNum(fScoreMax.value);
+                const jobQ = fJob.value.trim().toLowerCase();
+                const traceQ = fTrace.value.trim().toLowerCase();
+
+                filtered = events.filter(e => {
+                    if (intent && String(e.intent) !== intent) return false;
+
+                    const st = e.result && e.result.status ? String(e.result.status) : "";
+                    if (status && st !== status) return false;
+
+                    const at = e.action && e.action.type ? String(e.action.type) : "";
+                    if (actionType && at !== actionType) return false;
+
+                    const score = safeNum(e.result && e.result.score);
+                    if (sMin !== null && (score === null || score < sMin)) return false;
+                    if (sMax !== null && (score === null || score > sMax)) return false;
+
+                    const jobId = String(e.job_id || "").toLowerCase();
+                    if (jobQ && !jobId.includes(jobQ)) return false;
+
+                    const traceId = String(e.trace_id || "").toLowerCase();
+                    if (traceQ && !traceId.includes(traceQ)) return false;
+
+                    return true;
+                });
+
+                sortFiltered();
+                renderList();
+                setMeta(`Filtered: ${filtered.length}/${events.length}`);
+            }
+
+            function sortFiltered() {
+                const sm = sortMode.value;
+                filtered.sort((a, b) => {
+                    const ta = String(a.timestamp || "");
+                    const tb = String(b.timestamp || "");
+                    const sa = safeNum(a.result && a.result.score) ?? -Infinity;
+                    const sb = safeNum(b.result && b.result.score) ?? -Infinity;
+
+                    if (sm === "time_desc") return tb.localeCompare(ta);
+                    if (sm === "time_asc") return ta.localeCompare(tb);
+                    if (sm === "score_desc") return sb - sa;
+                    if (sm === "score_asc") return sa - sb;
+                    return 0;
+                });
+            }
+
+            function renderList() {
+                listEl.innerHTML = "";
+                const frag = document.createDocumentFragment();
+
+                for (const e of filtered) {
+                    const status = e.result && e.result.status ? String(e.result.status) : "—";
+                    const score = safeNum(e.result && e.result.score);
+                    const actType = e.action && e.action.type ? String(e.action.type) : "—";
+                    const actMode = e.action && e.action.mode ? String(e.action.mode) : "—";
+                    const intent = e.intent ? String(e.intent) : "—";
+                    const ts = e.timestamp ? String(e.timestamp) : "—";
+
+                    const item = document.createElement("div");
+                    item.className = "item";
+                    item.addEventListener("click", () => {
+                        selected = e;
+                        renderDetails(e);
+                    });
+
+                    const left = document.createElement("div");
+                    const right = document.createElement("div");
+                    right.className = "rightCol";
+
+                    left.innerHTML = `
+        <div style="font-weight:700">${intent}</div>
+        <div class="meta" style="margin-top:6px">
+          <span class="chip">${ts}</span>
+          <span class="chip">${actType}</span>
+          <span class="chip">${actMode}</span>
+          <span class="chip">job:${shortId(e.job_id)}</span>
+          <span class="chip">trace:${shortId(e.trace_id)}</span>
+        </div>
+      `;
+
+                    const sClass = getStatusClass(status);
+                    right.innerHTML = `
+        <div class="status ${sClass}">${status}</div>
+        <div class="score">${score === null ? "—" : score.toFixed(2)}</div>
+      `;
+
+                    item.appendChild(left);
+                    item.appendChild(right);
+                    frag.appendChild(item);
+                }
+
+                listEl.appendChild(frag);
+            }
+
+            function renderDetails(e) {
+                const traceId = e.trace_id || "";
+                const nodeId = e.node_id || "";
+                const parentId = e.parent_node_id ?? null;
+
+                const meta = {
+                    trace_id: traceId,
+                    node_id: nodeId,
+                    parent_node_id: parentId,
+                    depth: e.depth,
+                    build_id: e.build_id,
+                    job_id: e.job_id,
+                    timestamp: e.timestamp,
+                    intent: e.intent
                 };
 
-                traceList.appendChild(node);
+                detailsEl.innerHTML = `
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">Decision Details</div>
+        <div class="kv">
+          <div>trace_id</div><div>${String(meta.trace_id || "—")}</div>
+          <div>node_id</div><div>${String(meta.node_id || "—")}</div>
+          <div>parent</div><div>${String(meta.parent_node_id ?? "—")}</div>
+          <div>depth</div><div>${String(meta.depth ?? "—")}</div>
+          <div>build_id</div><div>${String(meta.build_id ?? "—")}</div>
+          <div>job_id</div><div>${String(meta.job_id ?? "—")}</div>
+          <div>intent</div><div>${String(meta.intent ?? "—")}</div>
+          <div>timestamp</div><div>${String(meta.timestamp ?? "—")}</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">State</div>
+        <pre>${pretty(e.state || {})}</pre>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">Action</div>
+        <pre>${pretty(e.action || {})}</pre>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">Result</div>
+        <pre>${pretty(e.result || {})}</pre>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">Raw Event</div>
+        <pre>${pretty(e)}</pre>
+      </div>
+    `;
+
+                // Optional: if WHY-API mode is enabled, allow fetching full trace.
+                if (mode === "api" && apiBaseUrl.value.trim()) {
+                    const btn = document.createElement("button");
+                    btn.textContent = "Load full trace via WHY-API";
+                    btn.type = "button";
+                    btn.style.marginTop = "10px";
+                    btn.addEventListener("click", async () => {
+                        await loadTraceFromApi(String(traceId));
+                    });
+                    detailsEl.prepend(btn);
+                }
+            }
+
+            // ---------- JSONL Load ----------
+            async function loadJsonlText(text) {
+                setError("");
+                invalidLines = 0;
+                const lines = text.split(/\r?\n/);
+                const parsed = [];
+
+                for (const ln of lines) {
+                    const t = ln.trim();
+                    if (!t) continue;
+                    try {
+                        parsed.push(normalizeEvent(JSON.parse(t)));
+                    } catch (e) {
+                        invalidLines += 1;
+                    }
+                }
+
+                events = parsed;
+                rebuildFilterOptions();
+                updateDebug();
+                filtered = [...events];
+                sortFiltered();
+                renderList();
+                setMeta(`Loaded JSONL: ${events.length} events (invalid lines skipped: ${invalidLines})`);
+            }
+
+            // Drag and drop
+            dropZone.addEventListener("dragover", (ev) => {
+                ev.preventDefault();
+                dropZone.classList.add("drag");
             });
-        }
+            dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag"));
+            dropZone.addEventListener("drop", async (ev) => {
+                ev.preventDefault();
+                dropZone.classList.remove("drag");
+                const file = ev.dataTransfer.files && ev.dataTransfer.files[0];
+                if (!file) return;
+                const text = await file.text();
+                await loadJsonlText(text);
+            });
+
+            // File input
+            fileInput.addEventListener("change", async () => {
+                const file = fileInput.files && fileInput.files[0];
+                if (!file) return;
+                const text = await file.text();
+                await loadJsonlText(text);
+            });
+
+            // ---------- WHY-API Load ----------
+            async function apiGet(path, params = {}) {
+                const base = apiBaseUrl.value.trim().replace(/\/+$/, "");
+                const url = new URL(base + path);
+                for (const [k, v] of Object.entries(params)) {
+                    if (v === undefined || v === null || String(v).trim() === "") continue;
+                    url.searchParams.set(k, String(v));
+                }
+                const res = await fetch(url.toString(), { method: "GET" });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    throw new Error((data && (data.error || data.message)) ? JSON.stringify(data) : `HTTP ${res.status}`);
+                }
+                return data;
+            }
+
+            async function loadLatestFromApi() {
+                setError("");
+                invalidLines = 0;
+                try {
+                    const intent = apiIntent.value.trim() || undefined;
+                    const data = await apiGet("/api/why/latest", { intent, max_lines: 2000 });
+                    const ev = data.event;
+                    events = ev ? [normalizeEvent(ev)] : [];
+                    rebuildFilterOptions();
+                    updateDebug();
+                    filtered = [...events];
+                    sortFiltered();
+                    renderList();
+                    setMeta(`WHY-API latest loaded (intent=${intent || "all"})`);
+                } catch (e) {
+                    setError("WHY-API /latest error: " + e.message);
+                }
+            }
+
+            async function loadStatsFromApi() {
+                setError("");
+                try {
+                    const intent = apiIntent.value.trim() || undefined;
+                    const data = await apiGet("/api/why/stats", { intent, window_lines: 10000 });
+                    detailsEl.innerHTML = `
+        <div class="card">
+          <div style="font-weight:700;margin-bottom:8px">WHY-API Stats</div>
+          <pre>${pretty(data)}</pre>
+        </div>
+      `;
+                    setMeta(`WHY-API stats loaded (intent=${intent || "all"})`);
+                } catch (e) {
+                    setError("WHY-API /stats error: " + e.message);
+                }
+            }
+
+            async function loadTraceFromApi(traceId) {
+                if (!traceId) return;
+                setError("");
+                try {
+                    const data = await apiGet(`/api/why/trace/${encodeURIComponent(traceId)}`, { max_lines: 10000 });
+                    // Replace list with full trace sequence
+                    events = (data.events || []).map(normalizeEvent);
+                    rebuildFilterOptions();
+                    updateDebug();
+                    filtered = [...events];
+                    sortFiltered();
+                    renderList();
+                    setMeta(`WHY-API trace loaded: ${traceId} (${events.length} events)`);
+                    if (events.length) renderDetails(events[0]);
+                } catch (e) {
+                    setError("WHY-API /trace error: " + e.message);
+                }
+            }
+
+            // ---------- Mode Switching ----------
+            function setMode(m) {
+                mode = m;
+                setError("");
+                selected = null;
+                detailsEl.innerHTML = `<div class="muted small">Select an event to see details.</div>`;
+                if (m === "jsonl") {
+                    panelJsonl.style.display = "";
+                    panelApi.style.display = "none";
+                    setMeta("Mode: JSONL Drop");
+                } else {
+                    panelJsonl.style.display = "none";
+                    panelApi.style.display = "";
+                    setMeta("Mode: WHY-API");
+                }
+                updateDebug();
+            }
+
+            btnModeJsonl.addEventListener("click", () => setMode("jsonl"));
+            btnModeApi.addEventListener("click", () => setMode("api"));
+
+            // ---------- Filter actions ----------
+            btnApplyFilters.addEventListener("click", applyFilters);
+            btnResetFilters.addEventListener("click", () => {
+                fIntent.value = "";
+                fStatus.value = "";
+                fAction.value = "";
+                fScoreMin.value = "";
+                fScoreMax.value = "";
+                fJob.value = "";
+                fTrace.value = "";
+                filtered = [...events];
+                sortFiltered();
+                renderList();
+                setMeta(`Reset filters: ${filtered.length}/${events.length}`);
+            });
+            sortMode.addEventListener("change", () => { sortFiltered(); renderList(); });
+
+            // ---------- WHY-API buttons ----------
+            btnApiLoadLatest.addEventListener("click", loadLatestFromApi);
+            btnApiLoadStats.addEventListener("click", loadStatsFromApi);
+
+            // ---------- Boot ----------
+            setMode("jsonl");
+            updateDebug();
+        })();
     </script>
 </body>
+
 </html>

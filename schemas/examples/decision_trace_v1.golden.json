@@ -1,0 +1,58 @@
+{
+    "schema_version": "decision_trace_v1",
+    "timestamp": "2026-01-13T16:10:00Z",
+    "trace_id": "8a2f3b4c-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
+    "node_id": "c1a9f2b0-0a41-4f3a-9a57-8f7b2d9f1b33",
+    "parent_node_id": null,
+    "intent": "dispatch_job",
+    "build_id": "main",
+    "job_id": "job_000001",
+    "depth": 0,
+    "state": {
+        "context_refs": [
+            "chain_ctx:job_000001",
+            "file:jobs/job_000001.json"
+        ],
+        "constraints": {
+            "budget_remaining": 100.0,
+            "time_remaining_ms": 30000,
+            "readonly": false,
+            "risk_level": "low"
+        }
+    },
+    "action": {
+        "action_id": "act_route_local_worker_01",
+        "type": "ROUTE",
+        "mode": "execute",
+        "params": {
+            "worker_id": "local_worker",
+            "strategy": "best_available",
+            "fallbacks": [
+                "webrelay"
+            ]
+        },
+        "select_score": 2.91,
+        "risk_gate": true
+    },
+    "result": {
+        "status": "success",
+        "metrics": {
+            "latency_ms": 450,
+            "cost": 0.05,
+            "tokens": 0,
+            "retries": 0,
+            "risk": 0.0,
+            "quality": 0.8
+        },
+        "score": 2.66,
+        "error": null,
+        "artifacts": [
+            "result_ref:job_000001:worker_output"
+        ],
+        "determinism": {
+            "input_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "output_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "drift": "none"
+        }
+    }
+}

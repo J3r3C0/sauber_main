@@ -1,0 +1,23 @@
+{
+    "schema_version": "scoring_defaults_v1",
+    "baselines": {
+        "latency_ms": {
+            "p50": 500,
+            "p95": 2000,
+            "note": "Normalize via p50/p95"
+        },
+        "cost": {
+            "p50": 1.0,
+            "p95": 10.0,
+            "note": "Normalize via p50/p95"
+        },
+        "risk": {
+            "note": "Risk is semantic (0..1), NOT normalized like latency/cost. Use clamp + gate/penalty."
+        },
+        "quality": {
+            "p50": 0.7,
+            "p95": 0.9,
+            "note": "Normalize via p50/p95"
+        }
+    }
+}

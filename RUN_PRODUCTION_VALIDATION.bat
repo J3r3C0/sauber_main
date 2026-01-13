@@ -17,9 +17,17 @@ echo.
 REM Step 2: Start system services
 echo [STEP 2/4] Starting Sheratan system...
 
+REM Find Chrome dynamically
+call "%~dp0scripts\find_chrome.bat"
+if errorlevel 1 (
+    echo   ERROR: Chrome not found. Please install Chrome or set CHROME_PATH manually.
+    pause
+    exit /b 1
+)
+
 REM Start Chrome with Remote Debugging
 echo   Starting Chrome with Remote Debugging...
-start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="%TEMP%\chrome_debug_sheratan" https://chatgpt.com
+start "" "%CHROME_PATH%" --remote-debugging-port=9222 --user-data-dir="%TEMP%\chrome_debug_sheratan" https://chatgpt.com
 
 REM Start WebRelay
 echo   Starting WebRelay...

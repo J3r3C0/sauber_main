@@ -14,9 +14,17 @@ if not exist "data\webrelay_out" mkdir "data\webrelay_out"
 if not exist "data\webrelay_in" mkdir "data\webrelay_in"
 if not exist "data\chrome_profile" mkdir "data\chrome_profile"
 
+REM Find Chrome dynamically
+call "%~dp0scripts\find_chrome.bat"
+if errorlevel 1 (
+    echo [ERROR] Chrome not found. Please install Chrome or set CHROME_PATH manually.
+    pause
+    exit /b 1
+)
+
 REM Start Chrome in Debug Mode
 echo [1/8] Starting Chrome Debug (port 9222)...
-start "Chrome Debug" "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="%CD%\data\chrome_profile" --no-first-run --no-default-browser-check https://chatgpt.com
+start "Chrome Debug" "%CHROME_PATH%" --remote-debugging-port=9222 --user-data-dir="%CD%\data\chrome_profile" --no-first-run --no-default-browser-check https://chatgpt.com
 timeout /t 3 /nobreak >nul
 
 REM Start Core API (with State Machine)

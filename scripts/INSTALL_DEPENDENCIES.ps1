@@ -50,14 +50,14 @@ else {
 # --- 2) Node.js Dependencies ---
 Write-Host ""
 Write-Host "[4/5] Installing Node.js dependencies for Dashboard..." -ForegroundColor Yellow
-$dashboardPkg = Join-Path $PROJECT_ROOT "dashboard\package.json"
+$dashboardPkg = Join-Path $PROJECT_ROOT "external\dashboard\package.json"
 if (Test-Path $dashboardPkg) {
-    Set-Location (Join-Path $PROJECT_ROOT "dashboard")
+    Set-Location (Join-Path $PROJECT_ROOT "external\dashboard")
     npm install
     Write-Host "  [OK] Dashboard dependencies installed" -ForegroundColor Green
 }
 else {
-    Write-Host "  [WARN] dashboard/package.json not found" -ForegroundColor Yellow
+    Write-Host "  [WARN] external/dashboard/package.json not found" -ForegroundColor Yellow
 }
 
 Write-Host ""

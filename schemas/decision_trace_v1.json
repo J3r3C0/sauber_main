@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Sheratan Decision Trace v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "trace_id",
+    "node_id",
+    "intent",
+    "build_id",
+    "job_id",
+    "depth",
+    "state",
+    "action",
+    "result"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "decision_trace_v1"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+
+    "trace_id": {
+      "type": "string",
+      "description": "UUID for the whole decision episode"
+    },
+    "node_id": {
+      "type": "string",
+      "description": "UUID for this decision node"
+    },
+    "parent_node_id": {
+      "type": ["string", "null"]
+    },
+
+    "build_id": {
+      "type": "string",
+      "description": "build_state.json reference"
+    },
+    "job_id": {
+      "type": ["string", "null"]
+    },
+
+    "intent": {
+      "type": "string",
+      "description": "High-level goal of this decision",
+      "examples": [
+        "dispatch_job",
+        "route_llm_call",
+        "recover_failure",
+        "rewrite_prompt"
+      ]
+    },
+
+    "depth": {
+      "type": "integer",
+      "minimum": 0
+    },
+
+    "state": {
+      "type": "object",
+      "required": ["context_refs", "constraints"],
+      "properties": {
+        "context_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Pointers to ChainContext, files, logs, etc."
+        },
+        "constraints": {
+          "type": "object",
+          "properties": {
+            "budget_remaining": { "type": "number" },
+            "time_remaining_ms": { "type": "number" },
+            "readonly": { "type": "boolean" },
+            "risk_level": {
+              "type": "string",
+              "enum": ["low", "medium", "high"]
+            }
+          }
+        }
+      }
+    },
+
+    "action": {
+      "type": "object",
+      "required": [
+        "action_id",
+        "type",
+        "mode",
+        "params",
+        "select_score",
+        "risk_gate"
+      ],
+      "properties": {
+        "action_id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": [
+            "ROUTE",
+            "EXECUTE",
+            "RETRY",
+            "REWRITE",
+            "FALLBACK",
+            "QUARANTINE",
+            "SKIP",
+            "ABORT"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["simulate", "execute"]
+        },
+        "params": {
+          "type": "object",
+          "description": "Lightweight, referential parameters"
+        },
+        "select_score": {
+          "type": "number",
+          "description": "UCB-Light score used for selection"
+        },
+        "risk_gate": {
+          "type": "boolean",
+          "description": "True = action was allowed to execute"
+        }
+      }
+    },
+
+    "result": {
+      "type": "object",
+      "required": ["status", "metrics", "score"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["success", "partial", "failed", "recovered", "skipped"]
+        },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "latency_ms": { "type": "number" },
+            "cost": { "type": "number" },
+            "tokens": { "type": "number" },
+            "retries": { "type": "number" },
+            "risk": { "type": "number" },
+            "quality": { "type": "number" }
+          }
+        },
+        "score": {
+          "type": "number",
+          "description": "Final Sheratan Score v1"
+        },
+        "error": {
+          "type": ["object", "null"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" }
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+
+        "determinism": {
+          "type": "object",
+          "properties": {
+            "input_hash": { "type": "string" },
+            "output_hash": { "type": "string" },
+            "drift": {
+              "type": "string",
+              "enum": ["none", "minor", "major"]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sheratan DecisionView [Minimal]</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --text: #f1f5f9;
+            --accent: #38bdf8;
+            --card: #1e293b;
+            --border: #334155;
+            --success: #22c55e;
+            --fail: #ef4444;
+            --warn: #f59e0b;
+        }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+        h1 { color: var(--accent); margin-bottom: 2rem; font-weight: 800; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .upload-zone {
+            border: 2px dashed var(--border);
+            padding: 2rem;
+            text-align: center;
+            border-radius: 0.75rem;
+            background: var(--card);
+            margin-bottom: 2rem;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .upload-zone:hover { border-color: var(--accent); }
+        .trace-list { margin-top: 2rem; }
+        .node {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+        }
+        .node:hover { border-color: var(--accent); }
+        .node-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .intent { font-weight: bold; font-size: 1.1rem; }
+        .score { font-family: monospace; padding: 0.2rem 0.6rem; border-radius: 4px; background: rgba(0,0,0,0.3); }
+        .score.good { color: var(--success); }
+        .score.bad { color: var(--fail); }
+        .details {
+            display: none;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+        .details.active { display: block; }
+        .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
+        .meta-item { background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 0.5rem; }
+        .meta-label { color: var(--accent); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 0.25rem; }
+        pre { background: #000; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.8rem; }
+        .tag { font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 10px; background: var(--accent); color: var(--bg); margin-left: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sheratan DecisionView <small style="font-size: 0.5em; opacity: 0.5; vertical-align: middle;">v1.0</small></h1>
+        
+        <div class="upload-zone" id="dropZone">
+            <p>Select or Drop <strong>decision_trace.jsonl</strong> here</p>
+            <input type="file" id="fileInput" style="display: none;" accept=".jsonl">
+        </div>
+
+        <div id="stats" style="margin-bottom: 1rem; font-size: 0.9rem; opacity: 0.8;"></div>
+        <div class="trace-list" id="traceList"></div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const traceList = document.getElementById('traceList');
+        const stats = document.getElementById('stats');
+
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = e => handleFile(e.target.files[0]);
+
+        dropZone.onactivate = e => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; };
+        dropZone.ondragover = e => { e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; };
+        dropZone.ondragleave = () => { dropZone.style.borderColor = 'var(--border)'; };
+        dropZone.ondrop = e => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--border)';
+            handleFile(e.dataTransfer.files[0]);
+        };
+
+        function handleFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                const lines = e.target.result.split('\n').filter(l => l.trim());
+                const traces = lines.map(l => JSON.parse(l));
+                renderTraces(traces);
+            };
+            reader.readAsText(file);
+        }
+
+        function renderTraces(traces) {
+            traceList.innerHTML = '';
+            stats.innerText = `Loaded ${traces.length} decision nodes.`;
+
+            // Sort by timestamp desc
+            traces.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            traces.forEach(t => {
+                const node = document.createElement('div');
+                node.className = 'node';
+                
+                const scoreClass = t.result.score > 2 ? 'good' : (t.result.score < 1 ? 'bad' : '');
+                const modeTag = t.action.mode === 'simulate' ? '<span class="tag">SIM</span>' : '<span class="tag">EXE</span>';
+                
+                node.innerHTML = `
+                    <div class="node-header">
+                        <div>
+                            <span class="intent">${t.intent}</span>
+                            ${modeTag}
+                            <span style="font-size: 0.8rem; opacity: 0.5; margin-left: 1rem;">${t.timestamp.split('T')[1].split('.')[0]}</span>
+                        </div>
+                        <div class="score ${scoreClass}">${t.result.score.toFixed(2)}</div>
+                    </div>
+                    <div>${t.action.type} &rarr; ${t.result.status}</div>
+                    
+                    <div class="details">
+                        <div class="meta-grid">
+                            <div class="meta-item">
+                                <span class="meta-label">Action ID / Type</span>
+                                ${t.action.action_id}<br><strong>${t.action.type}</strong>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Metrics</span>
+                                Latency: ${t.result.metrics.latency_ms}ms<br>
+                                Cost: ${t.result.metrics.cost} | Risk: ${t.result.metrics.risk}
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Correlation</span>
+                                Job: ${t.job_id || 'N/A'}<br>
+                                Trace: ${t.trace_id.slice(0,8)}...
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 1rem;">
+                            <span class="meta-label">Full Result Payload</span>
+                            <pre>${JSON.stringify(t.result, null, 2)}</pre>
+                        </div>
+                    </div>
+                `;
+
+                node.onclick = () => {
+                    const details = node.querySelector('.details');
+                    details.classList.toggle('active');
+                };
+
+                traceList.appendChild(node);
+            });
+        }
+    </script>
+</body>
+</html>

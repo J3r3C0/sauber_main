@@ -1,5 +1,6 @@
 # sheratan_core_v2/webrelay_bridge.py
 import json
+import uuid
 import sys
 import os
 from datetime import datetime
@@ -7,6 +8,8 @@ from pathlib import Path
 from typing import Optional
 
 from core import config, storage, models
+from core.mcts_light import mcts
+from core.decision_trace import trace_logger
 
 # Import mesh ledger and registry from local mesh/registry module
 try:
@@ -114,18 +117,55 @@ class WebRelayBridge:
         if not kind:
             kind = self._infer_job_kind(task)
 
-        # --- MESH ARBITRAGE LOGIC ---
+
+        # --- PHASE MCTS: Action Generation ---
+        intent = "dispatch_job"
+        candidates = []
+        
+        # 1. Base candidates from Registry
+        if self.registry:
+            for w_id, w_info in self.registry.workers.items():
+                if any(c.kind == kind for c in w_info.capabilities):
+                    # Check if worker is eligible (risk gate placeholder)
+                    is_safe = not w_info.stats.is_offline
+                    cost = next((c.cost for c in w_info.capabilities if c.kind == kind), 0)
+                    
+                    candidates.append({
+                        "action_id": str(uuid.uuid4()),
+                        "type": "ROUTE",
+                        "mode": "execute",
+                        "params": {"worker_id": w_id, "kind": kind, "cost": cost},
+                        "risk_gate": is_safe
+                    })
+
+        # 2. Add fallback/skip if empty
+        if not candidates:
+            candidates.append({
+                "action_id": str(uuid.uuid4()),
+                "type": "SKIP",
+                "mode": "execute",
+                "params": {"reason": "no_workers"},
+                "risk_gate": True
+            })
+
+        # 3. MCTS Selection
+        chosen, all_candidates = mcts.select_action(intent, candidates)
+        
         worker_id = "default_worker"
         cost = 0
+        if chosen and chosen["type"] == "ROUTE":
+            worker_id = chosen["params"]["worker_id"]
+            cost = chosen["params"]["cost"]
         
-        if self.registry:
-            best_worker = self.registry.get_best_worker(kind)
-            if best_worker:
-                worker_id = best_worker.worker_id
-                # Find cost for this kind
-                cost = next((c.cost for c in best_worker.capabilities if c.kind == kind), 0)
-            else:
-                print(f"WARNING: No specialized worker found for {kind}, using default.")
+        # 4. Persistence for later scoring
+        if "mcts_trace" not in job.payload:
+            job.payload["mcts_trace"] = {
+                "trace_id": str(uuid.uuid4()),
+                "intent": intent,
+                "candidates": all_candidates,
+                "chosen_action_id": chosen["action_id"] if chosen else None,
+                "build_id": os.getenv("SHERATAN_BUILD_ID", "main-v2")
+            }
 
         if self.ledger and cost > 0:
             payer = mission.user_id or "default_user"
@@ -136,10 +176,10 @@ class WebRelayBridge:
                     raise
                 print(f"Ledger charge failed: {e}")
 
-        if self.registry:
+        if self.registry and worker_id != "default_worker":
             self.registry.record_job_start(worker_id)
             
-        # Persist mesh selection in job payload for later attribution
+        # Persist mesh selection in job payload
         if "mesh" not in job.payload:
             job.payload["mesh"] = {}
         job.payload["mesh"]["worker_id"] = worker_id

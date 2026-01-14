@@ -33,6 +33,19 @@ from core.scoring import compute_score_v1
 from core.determinism import compute_input_hash, compute_output_hash
 
 
+def normalize_trace_state(state: Optional[dict]) -> dict:
+    """
+    Ensure decision_trace_v1 schema requirements are met.
+    In particular: state.constraints is required.
+    """
+    if state is None:
+        state = {}
+    s = dict(state)  # avoid mutating caller
+    if "constraints" not in s or s["constraints"] is None:
+        s["constraints"] = {}
+    return s
+
+
 def build_dispatch_candidates(
     job_id: str,
     bridge: WebRelayBridge,
@@ -219,7 +232,7 @@ def dispatch_with_mcts(
             trace_id=trace_id,
             intent=intent,
             build_id=build_id,
-            state=state_obj,
+            state=normalize_trace_state(state_obj),
             action=action_obj,
             result={
                 "status": result_status,

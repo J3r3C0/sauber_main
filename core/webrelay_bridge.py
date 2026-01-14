@@ -208,7 +208,7 @@ class WebRelayBridge:
                 "response_format": "lcp",
                 "mission": mission.to_dict(),
                 "task": task.to_dict(),
-                "params": job.payload,
+                "params": job.payload.get("params", {}),  # ✅ FIX: Extract params dict only
                 "artifacts": artifacts, # Pass artifacts to WebRelay
                 "last_result": job.payload.get("last_result") # Preserve last_result if present
             },

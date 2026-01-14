@@ -63,7 +63,7 @@ def main():
         specs = [{
             "spec_id": spec_id,
             "kind": "read_file",
-            "params": {"path": "core/main.py"}
+            "params": {"rel_path": "core/main.py"}
         }]
         storage.append_chain_specs(conn, chain_id, task_id, "root", "", specs)
         storage.set_chain_needs_tick(conn, chain_id, True)

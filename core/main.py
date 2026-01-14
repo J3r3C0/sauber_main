@@ -1,9 +1,27 @@
+from __future__ import annotations
+
 """
-Sheratan Core v2 – main.py
-FastAPI Kernel for Missions → Tasks → Jobs → Worker Dispatch → LCP Followups
+Sheratan Core v2 – Unified API
+
+Missions → Tasks → Jobs
++ WebRelay Bridge (Phase 9: LLM-Worker)
++ LCP Actions (Ledger Capability Protocol)
++ Dispatcher (Autonomous Job Orchestration)
++ ChainRunner (Spec→Job Creation)
 """
 
-from __future__ import annotations
+
+def normalize_trace_state(state):
+    """
+    Ensure decision_trace_v1 schema requirements are met.
+    In particular: state.constraints is required.
+    """
+    if state is None:
+        state = {}
+    s = dict(state)
+    if "constraints" not in s or s["constraints"] is None:
+        s["constraints"] = {}
+    return s
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
@@ -660,12 +678,12 @@ def sync_job(job_id: str):
             intent="complete_job",
             build_id=os.getenv("SHERATAN_BUILD_ID", "main-v2"),
             job_id=job_id,
-            state={
+            state=normalize_trace_state({
                 "context_refs": [f"job:{job_id}"],  # Required by schema
                 "job_status": f"working→{job.status}",
                 "retry_count": job.retry_count,
                 "has_result": job.result is not None
-            },
+            }),
             action={
                 "type": "COMPLETE",
                 "mode": "execute",
@@ -730,10 +748,10 @@ def sync_job(job_id: str):
                 intent=mcts_trace["intent"],
                 build_id=mcts_trace.get("build_id", "main-v2"),
                 job_id=job_id,
-                state={
+                state=normalize_trace_state({
                     "context_refs": [f"job:{job_id}", f"chain:{job.payload.get('_chain_hint', {}).get('chain_id')}"],
                     "constraints": {"budget_remaining": 100, "risk_level": "low"}
-                },
+                }),
                 action=chosen_action,
                 result={
                     "status": "success" if job.status == "completed" else "failed",

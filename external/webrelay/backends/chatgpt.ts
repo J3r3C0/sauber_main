@@ -184,43 +184,71 @@ async function setTextareaValueAndSend(page: Page, text: string): Promise<void> 
 }
 
 async function getLatestAssistantText(page: Page): Promise<string> {
-    const text = await page.evaluate(() => {
+    const result = await page.evaluate(() => {
+        const debug: string[] = [];
+
         // 1. Try modern data-testid first
         const turns = Array.from(document.querySelectorAll('[data-testid^="conversation-turn-"]'));
+        debug.push(`turns: ${turns.length}`);
         if (turns.length > 0) {
             const lastTurn = turns[turns.length - 1];
-            // Assistant content is usually in a specific nested div
             const content = lastTurn.querySelector('.markdown, .prose, [data-message-author-role="assistant"]');
-            if (content) return (content as HTMLElement).innerText || '';
-            return (lastTurn as HTMLElement).innerText || '';
+            if (content) {
+                const text = (content as HTMLElement).innerText || '';
+                if (text.length > 10) return { text, method: 'data-testid+content', debug };
+            }
+            const text = (lastTurn as HTMLElement).innerText || '';
+            if (text.length > 10) return { text, method: 'data-testid', debug };
         }
 
         // 2. Try standard author role
         const assistantNodes = Array.from(document.querySelectorAll<HTMLElement>('[data-message-author-role="assistant"]'));
+        debug.push(`assistant-role: ${assistantNodes.length}`);
         if (assistantNodes.length) {
             const last = assistantNodes[assistantNodes.length - 1];
-            return last.innerText || last.textContent || '';
+            const text = last.innerText || last.textContent || '';
+            if (text.length > 10) return { text, method: 'author-role', debug };
         }
 
-        // 3. Try generic prose/markdown (matches Canvas & standard)
+        // 3. Try generic prose/markdown
         const proseNodes = Array.from(document.querySelectorAll<HTMLElement>('.prose, .markdown, article'));
+        debug.push(`prose: ${proseNodes.length}`);
         if (proseNodes.length) {
             const last = proseNodes[proseNodes.length - 1];
-            return last.innerText || last.textContent || '';
+            const text = last.innerText || last.textContent || '';
+            if (text.length > 10) return { text, method: 'prose', debug };
         }
 
-        // 4. Last resort: Get the last message group
-        const allMessages = Array.from(document.querySelectorAll('.group, .w-full, [id^="message-"]'));
-        if (allMessages.length) {
-            const last = allMessages[allMessages.length - 1] as HTMLElement;
-            return last.innerText || '';
+        // 4. Try any div with substantial text content (NEW FALLBACK)
+        const allDivs = Array.from(document.querySelectorAll('div'));
+        const textDivs = allDivs.filter(d => {
+            const text = (d as HTMLElement).innerText || '';
+            return text.length > 50 && !text.includes('Message ChatGPT');
+        });
+        debug.push(`text-divs: ${textDivs.length}`);
+        if (textDivs.length) {
+            const last = textDivs[textDivs.length - 1] as HTMLElement;
+            const text = last.innerText || '';
+            if (text.length > 10) return { text, method: 'text-div-fallback', debug };
         }
 
-        return '';
+        return { text: '', method: 'none', debug };
     });
 
-    return (text || '').trim();
+    if (result.text.length > 0 && result.method !== 'text-div-fallback') {
+        // Only log on first successful detection
+        if (!lastDetectionMethod || lastDetectionMethod !== result.method) {
+            console.log(`✓ Answer detected via: ${result.method}`);
+            lastDetectionMethod = result.method;
+        }
+    } else if (result.text.length === 0) {
+        console.log(`⚠ No answer found. Debug: ${result.debug.join(', ')}`);
+    }
+
+    return (result.text || '').trim();
 }
+
+let lastDetectionMethod: string | null = null;
 
 function answerLooksComplete(raw: string): boolean {
     const trimmed = raw.trimEnd();

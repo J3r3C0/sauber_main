@@ -75,16 +75,16 @@ Sie beantwortet:
 | Erfordernis            | Soll | Ist-Status | Abweichung                                    |
 | ---------------------- | ---- | ---------- | --------------------------------------------- |
 | Quelle (Mission)       | ✅    | ✅          | Job hat Mission-ID                            |
-| Entscheidung (Warum)   | ✅    | ❌          | Keine Begründung für Worker-Auswahl           |
+| Entscheidung (Warum)   | ✅    | ✅          | Decision Trace Logger + WHY-API               |
 | Ergebnis (Output)      | ✅    | ✅          | Job-Result wird gespeichert                   |
-| Zuordnung (Job-ID)     | ✅    | ✅          | Jeder Job hat UUID                            |
-| Chain-of-Custody       | ✅    | ⚠️          | Ergebnis-Sync vorhanden, aber nicht auditiert |
+| Zuordnung (Job-ID)     | ✅    | ✅          | Jeder Job hat UUID + trace_id                 |
+| Chain-of-Custody       | ✅    | ✅          | MCTS Logging mit Schema-Validierung           |
 
 **Gap-Analyse:**
-- **Entscheidungsgrund:** Worker-Auswahl erfolgt, aber nicht dokumentiert (warum `default_worker` vs. `webrelay_worker`?).
-- **Audit-Trail:** Ledger existiert (`ledger_events.jsonl`), aber keine strukturierte Auswertung.
+- **Entscheidungsgrund:** ✅ MCTS Decision Trace mit Intent, Action, Result, Score
+- **Audit-Trail:** ✅ WHY-API mit 4 Endpunkten (`/latest`, `/trace`, `/job`, `/stats`)
 
-**Implementierungspfad:** Phase B (Deterministische Verantwortung)
+**Implementierungspfad:** ✅ Phase B abgeschlossen
 
 ---
 
@@ -130,17 +130,18 @@ Sie beantwortet:
 
 | Zustand     | Soll-Definition                    | Ist-Status | Abweichung                          |
 | ----------- | ---------------------------------- | ---------- | ----------------------------------- |
-| OPERATIONAL | Alles erfüllt                      | ⚠️          | Läuft, aber nicht formal definiert  |
-| DEGRADED    | Funktionsfähig mit Einschränkungen | ❌          | Nicht implementiert                 |
-| REFLECTIVE  | System analysiert sich selbst      | ❌          | Nicht implementiert                 |
-| RECOVERY    | Kontrollierter Wiederaufbau        | ❌          | Nicht implementiert                 |
-| PAUSED      | Bewusst gestoppt                   | ❌          | Nicht implementiert                 |
+| OPERATIONAL | Alles erfüllt                      | ✅          | Implementiert in `state_machine.py` |
+| DEGRADED    | Funktionsfähig mit Einschränkungen | ✅          | Implementiert, Auto-Transition      |
+| REFLECTIVE  | System analysiert sich selbst      | ⏳          | Zustand existiert, Logik fehlt      |
+| RECOVERY    | Kontrollierter Wiederaufbau        | ✅          | Implementiert                       |
+| PAUSED      | Bewusst gestoppt                   | ✅          | Implementiert, Default-State        |
 
 **Gap-Analyse:**
-- **Zustandsautomat fehlt komplett.** System ist faktisch `OPERATIONAL`, aber ohne formale Definition.
-- **Übergänge:** Keine Transition-Logik, keine Begründung für Zustandswechsel.
+- **Zustandsautomat:** ✅ Vollständig implementiert (375 Zeilen, File Locking, JSONL Logging)
+- **Übergänge:** ✅ Policy-basiert, strukturiert geloggt
+- **REFLECTIVE:** Zustand existiert, aber keine Self-Diagnostic-Logik
 
-**Implementierungspfad:** Phase A (Selbstbeschreibung) – **KRITISCH**
+**Implementierungspfad:** Phase D (Reflexive Capabilities) – **NÄCHSTER SCHRITT**
 
 ---
 

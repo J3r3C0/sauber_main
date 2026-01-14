@@ -36,6 +36,8 @@ from core.lcp_actions import LCPActionInterpreter
 from core.job_chain_manager import JobChainManager
 from core.metrics_client import record_module_call, measured_call
 from core.rate_limiter import RateLimiter
+from core.performance_baseline import PerformanceBaselineTracker
+from core.self_diagnostics import SelfDiagnosticEngine, DiagnosticConfig
 import json
 import os
 import psutil
@@ -163,16 +165,41 @@ state_machine = SystemStateMachine(
     log_path="logs/state_transitions.jsonl"
 )
 
+# --- PHASE 1: Performance Baseline Tracker ---
+baseline_tracker = PerformanceBaselineTracker(
+    runtime_dir="runtime",
+    filename="performance_baselines.json",
+)
+
+# --- PHASE 3: Self-Diagnostic Engine ---
+diagnostic_engine = SelfDiagnosticEngine(
+    state_machine=state_machine,
+    baseline_tracker=baseline_tracker,
+    config=DiagnosticConfig(
+        check_interval_sec=300,  # 5 minutes
+        persist_interval_sec=60,
+        reflective_enabled=False,  # conservative for now
+    ),
+)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 1. Initialize State Machine
     state_machine.load_or_init()
     print(f"[state] System initialized in state: {state_machine.snapshot().state}")
     
-    # 2. Start Dispatcher (Legacy)
+    # 2. Initialize Performance Baselines
+    baseline_tracker.persist(recompute=True)
+    print(f"[baseline] Performance baselines initialized")
+    
+    # 3. Start Self-Diagnostic Engine
+    diagnostic_engine.start()
+    print(f"[diagnostic] Self-diagnostic engine started")
+    
+    # 4. Start Dispatcher (Legacy)
     dispatcher.start()
     
-    # 3. Start Chain Runner (Phase 10.2)
+    # 5. Start Chain Runner (Phase 10.2)
     chain_runner.start()
     
     # 4. Transition to OPERATIONAL if health checks pass
@@ -197,6 +224,12 @@ async def lifespan(app: FastAPI):
     yield
     
     # Clean up
+    diagnostic_engine.stop()
+    print(f"[diagnostic] Self-diagnostic engine stopped")
+    
+    baseline_tracker.persist(recompute=True)
+    print(f"[baseline] Performance baselines persisted on shutdown")
+    
     state_machine.transition(
         SystemState.PAUSED,
         reason="System shutdown initiated",
@@ -466,12 +499,28 @@ def sync_job(job_id: str):
     2. Speichert es am Job
     3. Führt LCPActionInterpreter aus (→ Follow-Up Jobs)
     4. Gibt aktualisierten Job zurück
+    
+    Returns 202 Accepted if result not ready yet (instead of 404)
     """
     # 1) Worker-Result einlesen
     job = bridge.try_sync_result(job_id)
     if job is None:
-        # Worker hat noch nichts geliefert
-        raise HTTPException(404, "Result not found")
+        # Worker hat noch nichts geliefert - return current job status instead of 404
+        current_job = storage.get_job(job_id)
+        if current_job is None:
+            # Job not in storage (e.g. test jobs created as files directly)
+            # Return 202 Accepted to indicate "processing, not ready yet"
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=202,
+                content={"job_id": job_id, "status": "processing", "message": "Job not found in storage, result not ready"}
+            )
+        # Return 202 Accepted - result not ready yet
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=202,
+            content=current_job.model_dump()
+        )
 
     # 2) Worker-Latenz ermitteln (Job-Erstellung → Result Sync)
     worker_latency_ms = 0.0
@@ -785,6 +834,21 @@ def post_module_metrics(payload: dict):
     # For now just log to terminal if needed, or just return 200
     # print(f"[metrics] {payload.get('source')} -> {payload.get('target')} ({payload.get('duration_ms')}ms)")
     return {"ok": True}
+
+@app.get("/api/system/baselines")
+def get_performance_baselines():
+    """Returns performance baselines for all tracked metrics (Step 1)."""
+    return baseline_tracker.get_all_baselines(recompute=True)
+
+@app.get("/api/system/diagnostic")
+def get_system_diagnostic():
+    """Returns latest health report from Self-Diagnostic Engine (Step 3)."""
+    return diagnostic_engine.get_latest_report()
+
+@app.post("/api/system/diagnostic/trigger")
+def trigger_diagnostic(diagnostic_type: str = "manual"):
+    """Manually trigger a diagnostic check (Step 3)."""
+    return diagnostic_engine.run_diagnostic(diagnostic_type)
 
 import asyncio
 

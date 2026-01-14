@@ -145,7 +145,29 @@ def init_db():
         ON chain_specs(chain_id, status, claimed_until)
     """)
     
+    # --- SCHEMA MIGRATIONS TABLE ---
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            applied_at TEXT NOT NULL,
+            description TEXT
+        )
+    """)
+    
+    # Register baseline migration if not exists
+    cursor.execute("""
+        INSERT OR IGNORE INTO schema_migrations (version, applied_at, description)
+        VALUES ('baseline_v1', datetime('now'), 'Initial schema with missions, tasks, jobs, chains')
+    """)
+    
     conn.commit()
+    
+    # Log DB info for debugging
+    table_count = cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+    print(f"[database] Initialized at {DB_PATH}")
+    print(f"[database] Tables: {table_count}")
+    print(f"[database] WAL mode: enabled")
+    
     conn.close()
 
 @contextmanager

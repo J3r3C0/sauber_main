@@ -284,6 +284,50 @@ def update_job(job: models.Job) -> None:
             job.created_at, job.updated_at
         ))
         conn.commit()
+    
+    # --- TRACE ON DB WRITE (deterministic, path-independent) ---
+    # Log trace whenever job status changes to completed/failed
+    if job.status in ["completed", "failed"]:
+        try:
+            from core.decision_trace import trace_logger
+            import os
+            import uuid
+            
+            trace_logger.log_node(
+                trace_id=f"db-write-{job.id}",
+                intent="job_status_change",
+                build_id=os.getenv("SHERATAN_BUILD_ID", "main-v2"),
+                job_id=job.id,
+                depth=0,
+                state={
+                    "context_refs": [f"job:{job.id}"],
+                    "constraints": {
+                        "budget_remaining": 100,
+                        "risk_level": "low"
+                    }
+                },
+                action={
+                    "action_id": str(uuid.uuid4()),
+                    "type": "EXECUTE",
+                    "mode": "execute",
+                    "params": {
+                        "status": job.status,
+                        "kind": job.payload.get("kind", "unknown") if isinstance(job.payload, dict) else "unknown"
+                    },
+                    "select_score": 1.0,
+                    "risk_gate": True
+                },
+                result={
+                    "status": "success" if job.status == "completed" else "failed",
+                    "metrics": {
+                        "retry_count": job.retry_count
+                    },
+                    "score": 1.0 if job.status == "completed" else 0.0
+                }
+            )
+        except Exception as trace_err:
+            # Never fail job update due to trace error
+            print(f"[storage] Warning: Failed to log trace on DB write: {trace_err}")
 
 # --- Rate Limit Config CRUD ---
 
@@ -464,15 +508,39 @@ def set_chain_artifact(
         total = 0
         truncated_any = False
         if isinstance(value, dict):
-            meta["total_bytes_before"] = sum(len(str(v.get("content", "")).encode("utf-8")) for v in value.values())
+            # Calculate total bytes before truncation (handle both dict and string values)
+            total_before = 0
+            for v in value.values():
+                if isinstance(v, dict):
+                    content = v.get("content", "")
+                    total_before += len(str(content).encode("utf-8"))
+                elif isinstance(v, str):
+                    total_before += len(v.encode("utf-8"))
+            meta["total_bytes_before"] = total_before
+            
             newv = {}
             for p, rec in value.items():
-                content = rec.get("content", "")
-                b = content.encode("utf-8")
-                if len(b) > max_per:
-                    truncated_any = True
-                    b = b[:max_per]
-                    rec = {**rec, "content": b.decode("utf-8", errors="ignore"), "truncated": True}
+                # Handle both dict and string values
+                if isinstance(rec, dict):
+                    content = rec.get("content", "")
+                    b = content.encode("utf-8")
+                    if len(b) > max_per:
+                        truncated_any = True
+                        b = b[:max_per]
+                        rec = {**rec, "content": b.decode("utf-8", errors="ignore"), "truncated": True}
+                elif isinstance(rec, str):
+                    # If rec is a string, treat it as content directly
+                    b = rec.encode("utf-8")
+                    if len(b) > max_per:
+                        truncated_any = True
+                        b = b[:max_per]
+                        rec = {"content": b.decode("utf-8", errors="ignore"), "truncated": True}
+                    else:
+                        rec = {"content": rec}
+                else:
+                    # Skip invalid types
+                    continue
+                    
                 if total + len(b) > max_total:
                     truncated_any = True
                     break

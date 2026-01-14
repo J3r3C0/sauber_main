@@ -24,7 +24,27 @@ def main():
     from core.models import Task
     from datetime import datetime
     
-    # Create task first (outside conn - storage.create_task manages its own connection)
+    # Create mission first
+    from core.models import Mission
+    mission = Mission(
+        id="smoke-mission",
+        title="Smoke Test Mission",
+        description="E2E smoke test mission",
+        user_id="smoke-user",
+        status="active",
+        metadata={},
+        tags=[],
+        created_at=datetime.utcnow().isoformat() + "Z"
+    )
+    # Only create if it doesn't exist
+    existing_mission = storage.get_mission("smoke-mission")
+    if not existing_mission:
+        storage.create_mission(mission)
+        print(f"[SMOKE] Mission created: smoke-mission")
+    else:
+        print(f"[SMOKE] Mission already exists: smoke-mission")
+    
+    # Create task
     task = Task(
         id=task_id,
         mission_id="smoke-mission",

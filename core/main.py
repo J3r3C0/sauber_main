@@ -34,6 +34,7 @@ from core import storage
 from core.webrelay_bridge import WebRelayBridge, WebRelaySettings
 from core.lcp_actions import LCPActionInterpreter
 from core.job_chain_manager import JobChainManager
+from core.chain_runner import ChainRunner
 from core.metrics_client import record_module_call, measured_call
 from core.rate_limiter import RateLimiter
 from core.performance_baseline import PerformanceBaselineTracker
@@ -157,6 +158,44 @@ class Dispatcher:
                     job.updated_at = datetime.utcnow().isoformat() + "Z"
                     storage.update_job(job)
                     dispatched_count += 1
+                    
+                    # Phase 3: Log general decision trace (always, not just MCTS)
+                    try:
+                        from core.decision_trace import trace_logger
+                        trace_logger.log_node(
+                            trace_id=f"dispatch-{job.id}",
+                            intent="dispatch_job",
+                            build_id=os.getenv("SHERATAN_BUILD_ID", "main-v2"),
+                            job_id=job.id,
+                            state={
+                                "context_refs": [f"job:{job.id}"],  # Required by schema
+                                "job_status": "pending→working",
+                                "priority": job.priority,
+                                "queue_position": ready.index(job) if job in ready else -1
+                            },
+                            action={
+                                "type": "DISPATCH",
+                                "mode": "execute",
+                                "params": {
+                                    "worker_id": job.payload.get("mesh", {}).get("worker_id", "unknown"),
+                                    "kind": job.payload.get("kind", "unknown")
+                                }
+                            },
+                            result={
+                                "status": "dispatched",
+                                "metrics": {"dispatch_latency_ms": 0}
+                            }
+                        )
+                    except Exception as trace_err:
+                        print(f"[dispatcher] Warning: Failed to log dispatch trace: {trace_err}")
+                    
+                except ValueError as ve:
+                    # Orphaned job (missing task/mission) - mark as failed
+                    print(f"[dispatcher] ⚠️ Orphaned job {job.id[:8]}: {ve}")
+                    job.status = "failed"
+                    job.result = {"ok": False, "error": f"Orphaned job: {str(ve)}"}
+                    job.updated_at = datetime.utcnow().isoformat() + "Z"
+                    storage.update_job(job)
                 except Exception as e:
                     print(f"[dispatcher] ❌ FAILED to dispatch job {job.id[:8]}: {e}")
                     # Job remains in 'pending', will be retried next loop unless fixed
@@ -190,11 +229,6 @@ class Dispatcher:
                 _handle_lcp_followup(synced)
 
 
-
-# --- PHASE 10.2: Chain Runner ---
-from core.chain_runner import ChainRunner
-chain_runner = ChainRunner()
-
 # --- PHASE A: State Machine ---
 from core.state_machine import SystemStateMachine, SystemState
 state_machine = SystemStateMachine(
@@ -223,8 +257,20 @@ diagnostic_engine = SelfDiagnosticEngine(
     ),
 )
 
+# --- ChainRunner: Spec→Job Creation ---
+chain_runner = ChainRunner(
+    storage_mod=storage,
+    poll_interval_sec=1.0,
+    lease_seconds=120
+)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 0. Initialize Database Schema (FIRST - before anything else)
+    print("[database] Initializing schema...")
+    init_db()
+    print("[database] Schema initialization complete ✅")
+    
     # 1. Initialize State Machine
     state_machine.load_or_init()
     print(f"[state] System initialized in state: {state_machine.snapshot().state}")
@@ -265,8 +311,15 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
     
-    # 5. Start Chain Runner (Phase 10.2)
-    chain_runner.start()
+    # 5. Start Chain Runner (Spec→Job Creation)
+    try:
+        print("[chain_runner] starting ...")
+        chain_runner.start()
+        print("[chain_runner] started ✅")
+    except Exception as e:
+        print(f"[chain_runner] FAILED TO START ❌ {repr(e)}")
+        import traceback
+        traceback.print_exc()
     
     # 4. Transition to OPERATIONAL if health checks pass
     try:
@@ -599,7 +652,39 @@ def sync_job(job_id: str):
         # Wenn irgendwas schiefgeht, ist das nur Monitoring – Core läuft weiter
         pass
 
-    # --- MCTS LOGGING ---
+    # --- GENERAL DECISION TRACE (ALWAYS) ---
+    try:
+        from core.decision_trace import trace_logger
+        trace_logger.log_node(
+            trace_id=f"complete-{job_id}",
+            intent="complete_job",
+            build_id=os.getenv("SHERATAN_BUILD_ID", "main-v2"),
+            job_id=job_id,
+            state={
+                "context_refs": [f"job:{job_id}"],  # Required by schema
+                "job_status": f"working→{job.status}",
+                "retry_count": job.retry_count,
+                "has_result": job.result is not None
+            },
+            action={
+                "type": "COMPLETE",
+                "mode": "execute",
+                "params": {
+                    "kind": job.payload.get("kind", "unknown") if isinstance(job.payload, dict) else "unknown"
+                }
+            },
+            result={
+                "status": "success" if job.status == "completed" else "failed",
+                "metrics": {
+                    "worker_latency_ms": worker_latency_ms,
+                    "retry_count": job.retry_count
+                }
+            }
+        )
+    except Exception as trace_err:
+        print(f"[sync] Warning: Failed to log completion trace: {trace_err}")
+
+    # --- MCTS LOGGING (CONDITIONAL) ---
     mcts_trace = job.payload.get("mcts_trace")
     if mcts_trace:
         try:

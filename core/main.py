@@ -38,6 +38,7 @@ from core.metrics_client import record_module_call, measured_call
 from core.rate_limiter import RateLimiter
 from core.performance_baseline import PerformanceBaselineTracker
 from core.self_diagnostics import SelfDiagnosticEngine, DiagnosticConfig
+from core.anomaly_detector import AnomalyDetector
 import json
 import os
 import psutil
@@ -55,32 +56,50 @@ class Dispatcher:
         self._running = False
 
     def start(self):
+        if getattr(self, "_running", False):
+            print("[dispatcher] start() called but already running")
+            return
         self._running = True
         import threading
-        threading.Thread(target=self._run_loop, daemon=True).start()
-        print("[dispatcher] Central loops started.")
+        self._thread = threading.Thread(target=self._run_loop, name="dispatcher", daemon=True)
+        self._thread.start()
+        print("[dispatcher] thread launched")
 
     def _run_loop(self):
-        while self._running:
-            try:
-                # Periodic: Auto-activate planned missions (safety catch)
-                missions = storage.list_missions()
-                for m in missions:
-                    # Robust check
-                    m_status = getattr(m, 'status', None)
-                    if m_status == "planned":
-                        print(f"[dispatcher] ⚡ Auto-activating planned mission {m.id[:8]}")
-                        m.status = "active"
-                        storage.update_mission(m)
-                    elif m_status is None:
-                        # This should not happen if models are correct, let's log it
-                        print(f"[dispatcher] ⚠️ Mission {m.id[:8]} missing status attribute. Type: {type(m)}")
+        try:
+            print("[dispatcher] Central loops started.")
+            while self._running:
+                try:
+                    # Periodic: Auto-activate planned missions (safety catch)
+                    missions = storage.list_missions()
+                    for m in missions:
+                        # Robust check
+                        m_status = getattr(m, 'status', None)
+                        if m_status == "planned":
+                            print(f"[dispatcher] ⚡ Auto-activating planned mission {m.id[:8]}")
+                            m.status = "active"
+                            storage.update_mission(m)
+                        elif m_status is None:
+                            # This should not happen if models are correct, let's log it
+                            print(f"[dispatcher] ⚠️ Mission {m.id[:8]} missing status attribute. Type: {type(m)}")
 
-                self._dispatch_step()
-                self._sync_step()
-            except Exception as e:
-                print(f"[dispatcher] Error in loop: {e}")
-            time.sleep(2)
+                    self._dispatch_step()
+                    self._sync_step()
+                except Exception as e:
+                    print(f"[dispatcher] Error in loop: {e}")
+                time.sleep(2)
+            print("[dispatcher] loop exited cleanly")
+        except Exception as e:
+            import traceback
+            print(f"[dispatcher] LOOP CRASH ❌ {repr(e)}")
+            traceback.print_exc()
+        finally:
+            self._running = False
+            print("[dispatcher] running flag cleared")
+    
+    def is_running(self) -> bool:
+        t = getattr(self, "_thread", None)
+        return bool(getattr(self, "_running", False)) and t is not None and t.is_alive()
 
     def _dispatch_step(self):
         # 1. Get Pending Jobs
@@ -88,6 +107,8 @@ class Dispatcher:
         pending = [j for j in all_jobs if j.status == "pending"]
         if not pending:
             return
+        
+        print(f"[dispatcher] _dispatch_step: {len(pending)} pending jobs found")
 
         # 2. Idempotency / Deduplication Check
         completed_ids = {j.id for j in all_jobs if j.status == "completed"}
@@ -110,26 +131,42 @@ class Dispatcher:
                 ready.append(j)
         
         if not ready:
+            print(f"[dispatcher] No jobs ready after dependency filter (all {len(pending)} have unmet dependencies)")
             return
 
         # 4. Sort by Priority
         # priority_map: critical=0, high=1, normal=2
         priority_map = {"critical": 0, "high": 1, "normal": 2}
         ready.sort(key=lambda j: (priority_map.get(j.priority, 2), j.created_at))
+        
+        print(f"[dispatcher] {len(ready)} jobs ready for dispatch")
 
         # 4. Filter Rate Limits
         # For now, we use a single 'system' source or per-mission-owner
+        dispatched_count = 0
         for job in ready:
             source = "default_user" # TODO: Get from mission/task
             if rate_limiter.check_limit(source):
-                print(f"[dispatcher] 🚀 Dispatching job {job.id[:8]} (priority={job.priority})")
-                job.status = "working"
-                job.updated_at = datetime.utcnow().isoformat() + "Z"
-                storage.update_job(job)
-                self.bridge.enqueue_job(job.id)
+                try:
+                    # Phase 1: Try to write the job file/mesh-select
+                    self.bridge.enqueue_job(job.id)
+                    
+                    # Phase 2: Only if successful, move status to working
+                    print(f"[dispatcher] 🚀 Dispatched job {job.id[:8]} (priority={job.priority})")
+                    job.status = "working"
+                    job.updated_at = datetime.utcnow().isoformat() + "Z"
+                    storage.update_job(job)
+                    dispatched_count += 1
+                except Exception as e:
+                    print(f"[dispatcher] ❌ FAILED to dispatch job {job.id[:8]}: {e}")
+                    # Job remains in 'pending', will be retried next loop unless fixed
             else:
                 # Stop dispatching this batch if source is limited
+                print(f"[dispatcher] Rate limit hit for {source}, stopping dispatch")
                 break
+        
+        if dispatched_count == 0:
+            print(f"[dispatcher] No jobs dispatched (rate limited or other issue)")
 
     def _sync_step(self):
         # Check all 'working' jobs for results
@@ -171,10 +208,14 @@ baseline_tracker = PerformanceBaselineTracker(
     filename="performance_baselines.json",
 )
 
+# --- PHASE 2: Anomaly Detector ---
+anomaly_detector = AnomalyDetector(max_anomalies=500)
+
 # --- PHASE 3: Self-Diagnostic Engine ---
 diagnostic_engine = SelfDiagnosticEngine(
     state_machine=state_machine,
     baseline_tracker=baseline_tracker,
+    anomaly_detector=anomaly_detector,
     config=DiagnosticConfig(
         check_interval_sec=300,  # 5 minutes
         persist_interval_sec=60,
@@ -197,7 +238,24 @@ async def lifespan(app: FastAPI):
     print(f"[diagnostic] Self-diagnostic engine started")
     
     # 4. Start Dispatcher (Legacy)
-    dispatcher.start()
+    try:
+        import traceback
+        print("[dispatcher] starting ...")
+        dispatcher.start()
+        print(f"[dispatcher] is_running={dispatcher.is_running()}")
+        print("[dispatcher] started ✅")
+    except Exception as e:
+        print(f"[dispatcher] FAILED TO START ❌ {repr(e)}")
+        traceback.print_exc()
+        try:
+            state_machine.transition(
+                SystemState.DEGRADED,
+                reason="Dispatcher failed to start",
+                actor="core",
+                meta={"error": repr(e)},
+            )
+        except Exception:
+            pass
     
     # 5. Start Chain Runner (Phase 10.2)
     chain_runner.start()
@@ -849,6 +907,11 @@ def get_system_diagnostic():
 def trigger_diagnostic(diagnostic_type: str = "manual"):
     """Manually trigger a diagnostic check (Step 3)."""
     return diagnostic_engine.run_diagnostic(diagnostic_type)
+
+@app.get("/api/system/anomalies")
+def get_detected_anomalies(window: str = "1h", limit: int = 100):
+    """Returns detected anomalies from Anomaly Detector (Step 2)."""
+    return anomaly_detector.get_anomalies(window=window, limit=limit)
 
 import asyncio
 

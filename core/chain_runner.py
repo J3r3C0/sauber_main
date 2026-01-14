@@ -138,6 +138,11 @@ class ChainRunner:
             }
         }
         
+        
+        # Determine dependencies: root jobs have no deps, child jobs depend on real parent
+        parent_id = (spec.get("parent_job_id") or "").strip()
+        depends_on = [parent_id] if parent_id and parent_id not in {"parent", "root", ""} else []
+        
         job = Job(
             id=job_id,
             task_id=spec["task_id"],
@@ -148,7 +153,7 @@ class ChainRunner:
             idempotency_key=f"spec:{spec_id}",
             priority="normal",
             timeout_seconds=300,
-            depends_on=[spec["parent_job_id"]],
+            depends_on=depends_on,
             created_at=ts,
             updated_at=ts,
         )

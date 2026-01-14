@@ -40,7 +40,7 @@
       }
     ],
     "status": "online",
-    "last_seen": 1768324863.8455882,
+    "last_seen": 1768364559.591675,
     "endpoint": null,
     "stats": {
       "latency_ms_ema": 750.0,
@@ -71,7 +71,7 @@
       }
     ],
     "status": "online",
-    "last_seen": 1768324860.53417,
+    "last_seen": 1768364556.2290795,
     "endpoint": "http://localhost:3000",
     "stats": {
       "latency_ms_ema": 750.0,

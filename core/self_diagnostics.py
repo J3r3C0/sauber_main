@@ -7,6 +7,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+from core.anomaly_detector import AnomalyDetector
+
 
 @dataclass
 class DiagnosticConfig:
@@ -32,10 +34,12 @@ class SelfDiagnosticEngine:
         *,
         state_machine: Any,
         baseline_tracker: Any,
+        anomaly_detector: Optional[Any] = None,
         config: Optional[DiagnosticConfig] = None,
     ) -> None:
         self.state_machine = state_machine
         self.baseline_tracker = baseline_tracker
+        self.anomaly_detector = anomaly_detector
         self.config = config or DiagnosticConfig()
 
         self._stop_evt = threading.Event()
@@ -196,6 +200,27 @@ class SelfDiagnosticEngine:
             recompute=True,
         )
 
+        # --- anomaly detection (Step 2) ---
+        current_metrics = {}
+        if job_success_rate is not None:
+            current_metrics["job_success_rate"] = float(job_success_rate)
+        if llm_success_rate is not None:
+            current_metrics["llm_call_success_rate"] = float(llm_success_rate)
+        if avg_latency_ms is not None:
+            current_metrics["avg_job_latency_ms"] = float(avg_latency_ms)
+        current_metrics["state_transition_rate"] = float(state_transition_rate)
+
+        anomalies = []
+        if self.anomaly_detector is not None:
+            # use the same snapshot format your /baselines endpoint returns
+            baselines_snapshot = self.baseline_tracker.get_all_baselines(recompute=True)
+            anomalies = self.anomaly_detector.detect(
+                baselines_snapshot=baselines_snapshot,
+                current_metrics=current_metrics,
+                window="1h",
+                system_state=state,
+            )
+
         # --- compute a simple health score v1 ---
         health_score = self._health_score_v1(
             job_success_rate=job_success_rate,
@@ -238,6 +263,7 @@ class SelfDiagnosticEngine:
             "system_state": state,
             "health_score": health_score,
             "findings": findings,
+            "anomalies": anomalies,
             "baselines_path": "runtime/performance_baselines.json",
         }
 
@@ -313,6 +339,20 @@ class SelfDiagnosticEngine:
                 return str(s)
             except Exception:
                 continue
+        
+        # fallback: snapshot() style
+        try:
+            snap = getattr(self.state_machine, "snapshot", None)
+            if callable(snap):
+                s = snap()
+                if isinstance(s, dict):
+                    # common keys
+                    for k in ("state", "current_state", "name"):
+                        if k in s:
+                            return str(s[k])
+        except Exception:
+            pass
+        
         return "UNKNOWN"
 
     def _empty_report(self) -> Dict[str, Any]:

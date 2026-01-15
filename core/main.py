@@ -59,11 +59,27 @@ from core.performance_baseline import PerformanceBaselineTracker
 from core.self_diagnostics import SelfDiagnosticEngine, DiagnosticConfig
 from core.anomaly_detector import AnomalyDetector
 from core.gateway_middleware import enforce_gateway, GatewayViolation
+from core.attestation import evaluate_attestation
 import json
 import os
 import psutil
 import socket
 import time
+
+def _audit_log(event: str, details: dict):
+    """Standardized Security Audit Logging for Track A2."""
+    try:
+        audit_file = storage.DATA_DIR / "logs" / "hub_security_audit.jsonl"
+        audit_file.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "ts": datetime.utcnow().isoformat() + "Z",
+            "event": event,
+            "details": details
+        }
+        with audit_file.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print(f"[audit] Failed to write audit log: {e}")
 
 rate_limiter = RateLimiter()
 CORE_START_TIME = time.time()
@@ -924,12 +940,42 @@ def get_user_balance(user_id: str):
 async def host_heartbeat(payload: dict):
     """
     Receives status from hosts and updates the registry/mesh state.
+    Track A2: Evaluates node attestation signals.
     """
-    host_id = payload.get("host_id")
-    status = payload.get("status")
-    print(f"[heartbeat] Received update from {host_id}: {status}")
+    host_id = payload.get("host_id") or payload.get("node_id") or payload.get("name")
+    if not host_id:
+        return {"ok": False, "error": "missing_host_id"}
+        
+    status = payload.get("status", "online")
+    incoming_att = payload.get("attestation")
+    now_utc_str = datetime.utcnow().isoformat() + "Z"
     
-    # Update active status in broker's discovery file (simplified integration)
+    # 1. Load existing host record
+    host_record = storage.get_host(host_id) or {"node_id": host_id, "health": "GREEN", "attestation": {}}
+    
+    # 2. Evaluate Attestation (Track A2)
+    att_status, events, health_hint = evaluate_attestation(host_record, incoming_att, now_utc_str)
+    
+    # 3. Log Audit Events & Metrics
+    for ev in events:
+        details = ev["data"]
+        details["host_id"] = host_id
+        _audit_log(ev["event"], details)
+        
+    # Record metrics via module call (simplified for v2.5.1)
+    record_module_call(source="host_heartbeat", target=f"attestation_{att_status.lower()}", duration_ms=0)
+    
+    # 4. Final Upsert (Persists both Heartbeat and Attestation results)
+    storage.upsert_host(host_id, {
+        "status": status,
+        "health": host_record.get("health", "GREEN"),
+        "last_seen": now_utc_str,
+        "attestation": host_record.get("attestation")
+    })
+    
+    print(f"[heartbeat] {host_id} -> status={status}, health={host_record.get('health')}, attestation={att_status}")
+    
+    # Legacy: Update discovery file (backward compatibility)
     try:
         hosts_file = storage.DATA_DIR.parent / "mesh" / "offgrid" / "discovery" / "mesh_hosts.json"
         if hosts_file.exists():
@@ -937,12 +983,13 @@ async def host_heartbeat(payload: dict):
             for url in data:
                 if data[url].get("node_id") == host_id or host_id in url:
                     data[url]["active"] = (status == "online")
-                    data[url]["last_seen"] = datetime.utcnow().isoformat() + "Z"
+                    data[url]["last_seen"] = now_utc_str
+                    data[url]["health"] = host_record.get("health", "GREEN")
             hosts_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
     except Exception as e:
-        print(f"[heartbeat] Failed to update host status: {e}")
+        print(f"[heartbeat] Failed to update legacy host status: {e}")
         
-    return {"ok": True}
+    return {"ok": True, "attestation_status": att_status}
 
 
 # ------------------------------------------------------------------------------

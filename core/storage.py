@@ -779,3 +779,52 @@ def mark_chain_spec_done(conn, chain_id: str, spec_id: str, ok: bool, info: Opti
         ("done" if ok else "failed", now, chain_id, spec_id),
     )
     conn.commit()
+# ------------------------------------------------------------------------------
+# HOSTS - CRUD (Track A2)
+# ------------------------------------------------------------------------------
+
+def get_host(host_id: str) -> Optional[Dict[str, Any]]:
+    with get_db() as conn:
+        r = conn.execute("SELECT * FROM hosts WHERE id = ?", (host_id,)).fetchone()
+        if not r: return None
+        return {
+            "node_id": r['id'],
+            "status": r['status'],
+            "health": r['health'],
+            "last_seen": r['last_seen'],
+            "attestation": json.loads(r['attestation_json']),
+            "metadata": json.loads(r['metadata_json'])
+        }
+
+def upsert_host(host_id: str, updates: Dict[str, Any]) -> None:
+    """
+    Update or insert host record. 
+    'updates' can contain: status, health, last_seen, attestation, metadata.
+    """
+    existing = get_host(host_id)
+    if not existing:
+        existing = {
+            "node_id": host_id,
+            "status": "offline",
+            "health": "GREEN",
+            "last_seen": None,
+            "attestation": {},
+            "metadata": {}
+        }
+    
+    # Apply updates
+    if "status" in updates: existing["status"] = updates["status"]
+    if "health" in updates: existing["health"] = updates["health"]
+    if "last_seen" in updates: existing["last_seen"] = updates["last_seen"]
+    if "attestation" in updates: existing["attestation"] = updates["attestation"]
+    if "metadata" in updates: existing["metadata"] = updates["metadata"]
+
+    with get_db() as conn:
+        conn.execute("""
+            INSERT OR REPLACE INTO hosts (id, status, health, last_seen, attestation_json, metadata_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            host_id, existing["status"], existing["health"], existing["last_seen"],
+            json.dumps(existing["attestation"]), json.dumps(existing["metadata"])
+        ))
+        conn.commit()

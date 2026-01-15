@@ -144,6 +144,18 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_chain_specs_claimed
         ON chain_specs(chain_id, status, claimed_until)
     """)
+
+    # Track A2: Hosts table for Attestation
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS hosts (
+            id TEXT PRIMARY KEY,
+            status TEXT,
+            health TEXT DEFAULT 'GREEN',
+            last_seen TEXT,
+            attestation_json TEXT DEFAULT '{}',
+            metadata_json TEXT DEFAULT '{}'
+        )
+    """)
     
     # --- SCHEMA MIGRATIONS TABLE ---
     cursor.execute("""

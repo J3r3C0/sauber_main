@@ -127,3 +127,10 @@ The Data-Plane now supports at-most-once processing via `idempotency_key`:
 - **Automatic Promotion**: Once the `SHERATAN_HUB_TOKEN_ROTATION_UNTIL` deadline passes, the `NEXT_TOKEN` becomes the only valid secret, effectively retiring the old token without requiring a Hub restart.
 - **Audit Events**: `TOKEN_ACCEPTED_NEXT`, `TOKEN_RETIRED`, and `TOKEN_ROTATION_FINALIZED` track the rotation lifecycle.
 - **Metrics**: Tracked via `auth_failure.old_token_1m` and `auth_failure.invalid_1m`.
+
+### Node Attestation (A2)
+- **Mechanik**: Erfassung von `build_id`, `capability_hash` und `runtime` via Heartbeat.
+- **Drift-Erkennung**: Vergleich der aktuellen Signale mit dem `first_seen` Record. Bei Abweichung Status `DRIFT` und Health `YELLOW`.
+- **Spoofing-Verdacht**: Überwachung schneller Änderungen des Capability-Hashes (Flip-Flop). Schwellenwert: ≥3 Änderungen (konfigurierbar via `SHERATAN_ATTESTATION_SPOOF_THRESHOLD`).
+- **Audit Events**: `ATTESTATION_FIRST_SEEN`, `ATTESTATION_DRIFT`, `ATTESTATION_SPOOF_SUSPECT`.
+- **Signal-only**: Attestation-Status beeinflusst die Health (YELLOW), blockiert aber keine funktionalen Requests.

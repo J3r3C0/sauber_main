@@ -219,3 +219,17 @@ webrelay.log
 # Keep .env.example
 # -----------------------------------------------------------------------------
 !.env.example
+
+legacy_dev_pläne/Implementierungsplan v. Track B Data-Plane Robustness.md
+legacy_dev_pläne/Implementierungsplan v2.0 Track C Observability V2.md
+legacy_dev_pläne/implementierungsplan v2.2 b2.md
+legacy_dev_pläne/klarstellung aktuell a2.md
+legacy_dev_pläne/konkrete patch skeletons a2.md
+legacy_dev_pläne/plan A2 v2.4.md
+legacy_dev_pläne/plan A2.md
+legacy_dev_pläne/plan b3.md
+legacy_dev_pläne/Sheratan Gateway Versionen.pdf
+legacy_dev_pläne/stabilization_plan.md
+legacy_dev_pläne/system_overview.md
+legacy_dev_pläne/task.md
+legacy_dev_pläne/v2 masterplan.md

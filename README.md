@@ -1,137 +1,68 @@
-# Sheratan - Autonomous Job Orchestration System
+# Sheratan Core
 
-**Status**: Production-Ready Core | **Stand**: 2026-01-14
+![Status: Production-Ready](https://img.shields.io/badge/Status-Production--Ready-green)
+![Version: 2.9](https://img.shields.io/badge/Version-v2.9-blue)
+![Acceptance: PASS](https://img.shields.io/badge/Acceptance-PASS-brightgreen)
 
-Ein autonomes Job-Orchestrierungs-System mit Mission/Task/Job Hierarchie, Offgrid Mesh und LLM-Integration.
-
----
-
-## 🚀 Quick Start
-
-```cmd
-START_COMPLETE_SYSTEM.bat
-```
-
-Öffne Dashboard: **http://localhost:3001**
-
-**Details**: Siehe [QUICKSTART.md](QUICKSTART.md)
+Sheratan Core is a stable, high-performance orchestration and control-plane engine designed for robust mesh-based task execution. It establishes a secure, tamper-proof environment for distributed workloads with a focus on cryptographic integrity and data-plane resilience.
 
 ---
 
-## 📊 System-Übersicht
+## Executive Summary
 
-**8 Services** laufen auf festen Ports:
+Sheratan Core has successfully passed all production readiness and stability gates. It is a reliable, manipulation-resistant system designed for production environments or high-stakes development phases.
 
-| Service | Port | Status |
-|---------|------|--------|
-| Core API | 8001 | ✅ Stabil |
-| Broker | 9000 | ✅ Stabil |
-| Host-A | 8081 | ✅ Stabil |
-| Host-B | 8082 | ✅ Stabil |
-| WebRelay | 3000 | ✅ Stabil |
-| Dashboard | 3001 | ✅ Stabil |
-| Worker Loop | - | ✅ Stabil |
-| Chrome Debug | 9222 | ✅ Stabil |
+### Core Values
+- **Reliability**: Remains stable under load, detects duplicate/faulty requests, and ensures consistent results.
+- **Security**: Cryptographic identity for all components, automated drift/spoof detection, and controlled security enforcement.
+- **Transparency**: Fully auditable system state, automated metric tracking, and explainable decision traces.
 
 ---
 
-## 📚 Dokumentation
+## Technical Capabilities (Sheratan v2.9)
 
-### Einstieg
-- **[QUICKSTART.md](QUICKSTART.md)** - System starten & erste Schritte
-- **[system_overview.md](docs/system_overview.md)** - Alle Ports, API-Endpoints, IDE-Control
+### 🛡️ Governance & Security (Track A)
+- **Node Identity (A4)**: Ed25519 identity with TOFU-pinning and signed heartbeats.
+- **Node Attestation (A2)**: Automated signal tracking for build-id, capability hash, and runtime drift.
+- **Enforcement Layer (A3)**: Graduated response (WARN/QUARANTINE) based on attestation health.
+- **Token Rotation (A1)**: Zero-downtime credential rotation.
 
-### Architektur
-- **[PHASE_A_STATE_MACHINE.md](docs/PHASE_A_STATE_MACHINE.md)** - State Machine (PAUSED → OPERATIONAL → DEGRADED)
-- **[MESH_CAPABILITIES.md](docs/MESH_CAPABILITIES.md)** - Mesh Network Details
-
-### Status & Planung
-- **[task.md](task.md)** - Aktuelle TODOs & Prioritäten
-- **[SYSTEM_IST_DEFINITION.md](docs/SYSTEM_IST_DEFINITION.md)** - Was läuft aktuell
-- **[PHASE2_DECISION_MATRIX.md](docs/PHASE2_DECISION_MATRIX.md)** - Geplante Optimierungen
+### ⚡ Data-Plane Robustness (Track B)
+- **Result Integrity (B3)**: Canonical SHA256 hashing for all results. Tamper detection triggers 403 Forbidden and audit alerts.
+- **Idempotency (B2)**: At-most-once semantics with gateway hashing and collision detection.
+- **Backpressure (B1)**: Queue-depth limits, inflight-limits, and DB-native lease management.
 
 ---
 
-## 🎯 Was funktioniert
+## Proof of Work & Verification
 
-**Production-Ready:**
-- ✅ Mission/Task/Job Management (API)
-- ✅ Dispatcher (automatische Job-Verteilung)
-- ✅ ChainRunner (Spec→Job Erstellung)
-- ✅ State Machine & Self-Diagnostics
-- ✅ WHY-API (Decision Traces)
-
-**Experimentell:**
-- ⚠️ Crypto Sessions (vorbereitet, nicht aktiv)
-- ⚠️ Encrypted Mesh Communication
+The system state is continuously validated via the **Sheratan Acceptance Suite**:
+- `scripts/acceptance.ps1` -> **PASS**
+- `verify_b2_idempotency.ps1` -> **PASS**
+- `verify_b3_result_integrity.ps1` -> **PASS**
 
 ---
 
-## 📁 Struktur
+## Getting Started
 
-```
-c:\sauber_main\
-├── core/                   # Core API (FastAPI)
-├── mesh/offgrid/          # Mesh (Broker + Hosts)
-├── worker/                # Worker Loop
-├── external/webrelay/     # LLM Bridge
-├── data/                  # Runtime Data
-├── logs/                  # System Logs
-├── docs/                  # Dokumentation
-├── START_COMPLETE_SYSTEM.bat
-└── STOP_SHERATAN.bat
-```
-
----
-
-## 🔧 Wichtige Commands
-
-### System-Health prüfen
+### Quick Launch (Windows)
+To start the complete system on localhost:
 ```powershell
-Invoke-RestMethod http://localhost:8001/api/system/state
+.\START_COMPLETE_SYSTEM.bat
 ```
 
-### Logs live ansehen
+### Verification
+To run the full production acceptance gate:
 ```powershell
-Get-Content logs\state_transitions.jsonl -Tail 20 -Wait
-```
-
-### Mission erstellen
-```powershell
-$m = @{title="Test";description="Test";priority="normal"} | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri http://localhost:8001/api/missions -Body $m -ContentType "application/json"
-```
-
-**Mehr Commands**: Siehe [system_overview.md](docs/system_overview.md)
-
----
-
-## 🛑 System stoppen
-
-```cmd
-STOP_SHERATAN.bat
+.\scripts\acceptance.ps1
 ```
 
 ---
 
-## 🚨 Troubleshooting
-
-**Port bereits belegt:**
-```cmd
-STOP_SHERATAN.bat
-timeout /t 5
-START_COMPLETE_SYSTEM.bat
-```
-
-**Core API antwortet nicht:**  
-Warte 60 Sekunden nach Start - Services brauchen Zeit.
-
-**Mehr Hilfe**: Siehe [QUICKSTART.md](QUICKSTART.md#troubleshooting)
+## Documentation
+- [System Overview](docs/system_overview.md) - Port guide and architecture.
+- [Architecture](docs/SHERATAN_REFACTORING_PLAN.md) - Technical design and state machines.
+- [Track B2 Details](docs/Track%20B2%20idempotency.md) - Idempotency implementation.
 
 ---
-
-## 📞 Support
-
-- **Logs**: `logs/`
-- **State**: `runtime/system_state.json`
-- **Data**: `data/`
+**Status**: Track B (Reliability) is officially CLOSED. Ready for deployment.
